@@ -15,7 +15,7 @@ var gardenerConfig = corev1.Secret{
 `global:
   deployment:
    virtualGarden:
-     clusterIP: 10.16.0.1`,
+     clusterIP: {{ .clusterIP }}`,
 	},
 	Type: "Opaque",
 }
