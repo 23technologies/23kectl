@@ -1,4 +1,10 @@
+package install
+
+import "fmt"
+
 // install ...
-func install()  {
+
+func Install()  {
   
+	fmt.Println("Our install code here")
 }
