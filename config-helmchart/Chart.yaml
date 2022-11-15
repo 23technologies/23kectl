@@ -1,0 +1,7 @@
+apiVersion: v2
+name: 23ke-env-configuration
+description: A Helm chart for generating the environment specific part of a 23ke configuration
+
+type: application
+
+version: 0.0.1

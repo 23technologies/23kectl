@@ -1,0 +1,30 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: extensions-values
+  namespace: flux-system
+type: Opaque
+stringData:
+  values.yaml: |
+    os-ubuntu:
+      enabled: true
+
+    os-gardenlinux:
+      enabled:
+{{- if eq .Values.baseCluster.provider "hcloud" }}
+    provider-hcloud:
+      enabled: true
+{{- end }}
+
+{{- if or (eq .Values.baseCluster.provider "azure") (eq .Values.dnsProvider.type "azure-dns") }}
+    provider-azure:
+      enabled: true
+{{- end }}
+
+{{- if or (eq .Values.baseCluster.provider "openstack") (eq .Values.dnsProvider.type "openstack-designate") }}
+    provider-openstack:
+      enabled: true
+{{- end }}
+
+    networking-calico:
+      enabled: true

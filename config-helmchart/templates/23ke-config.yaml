@@ -1,0 +1,31 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: 23ke-config
+  namespace: flux-system
+type: Opaque
+stringData:
+  values.yaml: |
+    clusterIdentity: garden-cluster-{{ randAlphaNum 10 }}-identity
+    dashboard:
+      clientSecret: {{ randAlphaNum 40 }}
+      sessionSecret: {{ randAlphaNum 40 }}
+    kubeApiServer:
+      basicAuthPassword: {{ randAlphaNum 40 }}
+    issuer:
+      acme:
+        email: {{ required "An email address is required" .Values.emailAddress }}
+    domains:
+      global: # means used for ingress, gardener defaultDomain and internalDomain
+        domain: {{ required "A domain is required" .Values.domain }}
+        # see list of possible providers https://gardener.cloud/docs/extensions/others/gardener-extension-shoot-dns-service/docs/usage/dns_names/#gardener-dns-extension
+        provider: {{ required "A dns provider is required" .Values.dnsProvider.type }}
+        credentials:
+{{- if eq .Values.dnsProvider.type "azure-dns" }}
+          tenantID: {{ required "A value must be entered for tenantID if provider is azure" .Values.dnsProvider.credentials.tenantID }}
+          subscriptionID: {{ required "A value must be entered for subscriptionID if provider is azure" .Values.dnsProvider.credentials.subscriptionID }}
+          clientID: {{ required "A value must be entered for clientID if provider is azure" .Values.dnsProvider.credentials.clientID }}
+          clientSecret: {{ required "A value must be entered for clientSecret if provider is azure" .Values.dnsProvider.credentials.clientSecret }}
+{{- else if eq .Values.dnsProvider.type "aws-route53" }}
+          schongo: bogo
+{{- end }}

@@ -1,0 +1,19 @@
+domain:
+emailAddress:
+
+baseCluster:
+  # define the provider your base-cluster runs on
+  # e.g. azure, aws, gcp, hcloud...
+  provider:
+  # specify the region your base-cluster runs on
+  region:
+  # specify the network of the workers in your base-cluster
+  nodeCidr:
+
+dnsProvider:
+  type: azure-dns
+  credentials:
+    tenantID:
+    subscriptionID:
+    clientID:
+    clientSecret:
