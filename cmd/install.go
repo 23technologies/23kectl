@@ -6,10 +6,12 @@ package cmd
 
 import (
 	"fmt"
+	"io/ioutil"
 
 	"github.com/23technologies/23kectl/pkg/install"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"gopkg.in/yaml.v3"
 )
 
 // installCmd represents the install command
@@ -25,6 +27,13 @@ to quickly create a Cobra application.`,
 	Run: func(cmd *cobra.Command, args []string) {
 
 		viper.Debug()
+
+		config := install.KeConfig{}
+		configByte, err := ioutil.ReadFile(viper.ConfigFileUsed())
+		yaml.Unmarshal(configByte, &config)
+		if err != nil {
+			panic(err)
+		}
 		
 		kubeConfig := viper.GetString("KUBECONFIG")
 		if kubeConfig == "" {
@@ -35,7 +44,9 @@ to quickly create a Cobra application.`,
 			return
 		}
 		
-		install.Install(kubeConfig)
+		install.Install(kubeConfig, &config)
+		data, err := yaml.Marshal(&config)
+		err = ioutil.WriteFile(viper.GetViper().ConfigFileUsed(), data, 0)
 	},
 }
 
