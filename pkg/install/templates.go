@@ -26,7 +26,7 @@ func (d domainConfiguration) marshal() string {
 	return string(result)
 }
 
-func createDomainConfiguration(domain string, dnsProvider string) (domainConfiguration, error)  {
+func createDomainConfiguration(domain string, dnsProvider string) (domainConfiguration, error) {
 
 	switch dnsProvider {
 	case "azure-dns":
@@ -37,7 +37,7 @@ func createDomainConfiguration(domain string, dnsProvider string) (domainConfigu
 }
 
 func keConfigTpl() []string {
-	return []string {`
+	return []string{`
 apiVersion: v1
 kind: Secret
 metadata:
@@ -59,7 +59,7 @@ stringData:
       global: # means used for ingress, gardener defaultDomain and internalDomain
         {{- nindent 8 (toYaml .DomainConfig) }}
 `,
-`
+		`
 apiVersion: v1
 kind: Secret
 metadata:
@@ -73,7 +73,7 @@ stringData:
        virtualGarden:
          clusterIP: {{ .Gardener.ClusterIP }} 
 `,
-`
+		`
 apiVersion: v1
 kind: Secret
 metadata:
@@ -100,8 +100,8 @@ stringData:
          settings:
            verticalPodAutoscaler:
              enabled: false # enable if your base cluster does not 
-`, 
-`
+`,
+		`
 apiVersion: v1
 kind: Secret
 metadata:
@@ -118,7 +118,7 @@ stringData:
       enabled: true
     {{- nindent 4 (toYaml .ExtensionsConfig) }}
 `,
-`apiVersion: v1
+		`apiVersion: v1
 kind: Secret
 metadata:
  name: dashboard-values
@@ -128,8 +128,8 @@ stringData:
  values.yaml: |
    frontendConfig:
      seedCandidateDeterminationStrategy: MinimalDistance
-`, 
-`apiVersion: v1
+`,
+		`apiVersion: v1
   kind: Secret
   metadata:
     name: identity-values
@@ -143,7 +143,7 @@ stringData:
         username: "admin"
         userID: "08a8684b-db88-4b73-90a9-3cd1661f5466"
 `,
-`apiVersion: v1
+		`apiVersion: v1
 kind: Secret
 metadata:
  name: cloudprofiles-values
@@ -166,5 +166,5 @@ stringData:
    betacloud:
      enabled: true
 `,
-}
+	}
 }

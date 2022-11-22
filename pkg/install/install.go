@@ -6,7 +6,6 @@ import (
 	"encoding/hex"
 	"fmt"
 	"html/template"
-	"math/rand"
 	"net"
 	"os"
 	"strings"
@@ -102,8 +101,8 @@ func completeKeConfig(config *KeConfig, clientset *kubernetes.Clientset) {
 
 	clusterIp[len(clusterIp)-2] += 1
 	clusterIp[len(clusterIp)-1] += 1
-	
-	if ! ipnet.Contains( clusterIp ) {
+
+	if !ipnet.Contains(clusterIp) {
 		panic("Your cluster ip is out of the service IP range")
 	}
 	config.Gardener.ClusterIP = clusterIp.String()
@@ -113,7 +112,7 @@ func completeKeConfig(config *KeConfig, clientset *kubernetes.Clientset) {
 
 	// enable the provider extensions needed for a minimal setup
 	config.ExtensionsConfig = make(extensionsConfig)
-	config.ExtensionsConfig["provider-" + config.BaseCluster.Provider] = map[string]bool{"enabled": true}
+	config.ExtensionsConfig["provider-"+config.BaseCluster.Provider] = map[string]bool{"enabled": true}
 	config.ExtensionsConfig[dnsProviderToProvider[config.DomainConfig.Provider]] = map[string]bool{"enabled": true}
 
 }
