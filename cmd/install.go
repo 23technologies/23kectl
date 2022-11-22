@@ -1,12 +1,12 @@
 /*
 Copyright © 2022 NAME HERE <EMAIL ADDRESS>
-
 */
 package cmd
 
 import (
+	"errors"
 	"fmt"
-	"io/ioutil"
+	"os"
 
 	"github.com/23technologies/23kectl/pkg/install"
 	"github.com/spf13/cobra"
@@ -29,12 +29,19 @@ to quickly create a Cobra application.`,
 		viper.Debug()
 
 		config := install.KeConfig{}
-		configByte, err := ioutil.ReadFile(viper.ConfigFileUsed())
-		yaml.Unmarshal(configByte, &config)
+		configByte, err := os.ReadFile(viper.ConfigFileUsed())
+
+		if errors.Is(err, os.ErrNotExist) {
+			configByte = make([]byte, 0)
+		} else if err != nil {
+			panic(err)
+		}
+
+		err = yaml.Unmarshal(configByte, &config)
 		if err != nil {
 			panic(err)
 		}
-		
+
 		kubeConfig := viper.GetString("KUBECONFIG")
 		if kubeConfig == "" {
 			kubeConfig = viper.GetString("kubeconfig")
@@ -43,10 +50,10 @@ to quickly create a Cobra application.`,
 			fmt.Println("A kubeconfig has to be set")
 			return
 		}
-		
+
 		install.Install(kubeConfig, &config)
 		data, err := yaml.Marshal(&config)
-		err = ioutil.WriteFile(viper.GetViper().ConfigFileUsed(), data, 0)
+		err = os.WriteFile(viper.GetViper().ConfigFileUsed(), data, 0)
 	},
 }
 
@@ -58,7 +65,7 @@ func init() {
 	// Cobra supports Persistent Flags which will work for this command
 	// and all subcommands, e.
 	installCmd.PersistentFlags().String("kubeconfig", "", "The KUBECONFIG of your base cluster")
-  viper.BindPFlag("kubeconfig", installCmd.PersistentFlags().Lookup("kubeconfig"))
+	viper.BindPFlag("kubeconfig", installCmd.PersistentFlags().Lookup("kubeconfig"))
 
 	// Cobra supports local flags which will only run when this command
 	// is called directly, e.g.:
