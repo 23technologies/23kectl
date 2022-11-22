@@ -1,18 +1,32 @@
 package install
 
 import (
+	"errors"
+	"fmt"
 	"github.com/AlecAivazis/survey/v2"
+	"github.com/AlecAivazis/survey/v2/terminal"
+	"os"
 )
 
-func queryConfig(config *KeConfig) {
+func handleErr(err error) {
+	if errors.Is(err, terminal.InterruptErr) {
+		fmt.Println("Ctrl+C, exiting.")
+		os.Exit(1)
+	} else if err != nil {
+		panic(err)
+	}
+}
 
+func queryConfig(config *KeConfig) {
+	var err error
 	var prompt survey.Prompt
 
 	if config.EmailAddress == "" {
 		prompt = &survey.Input{
 			Message: "Please enter your email address",
 		}
-		survey.AskOne(prompt, &config.EmailAddress)
+		err = survey.AskOne(prompt, &config.EmailAddress)
+		handleErr(err)
 		config.Issuer.Acme.Email = config.EmailAddress
 	}
 
@@ -20,37 +34,41 @@ func queryConfig(config *KeConfig) {
 		prompt = &survey.Password{
 			Message: "Please enter the administrator password to use",
 		}
-		survey.AskOne(prompt, &config.AdminPassword)
+		err = survey.AskOne(prompt, &config.AdminPassword)
+		handleErr(err)
 	}
 
 	if config.GitRepo == "" {
 		prompt = &survey.Input{
 			Message: "Please enter your git repository remote, e.g. git@github.com:User/Repo.git",
 		}
-		survey.AskOne(prompt, &config.GitRepo)
+		err = survey.AskOne(prompt, &config.GitRepo)
+		handleErr(err)
 	}
-	
+
 	if config.BaseCluster.Provider == "" {
 		prompt = &survey.Select{
 			Message: "Select the provider of your base cluster",
 			Options: []string{"hcloud", "azure", "aws", "openstack"},
 		}
-		survey.AskOne(prompt, &config.BaseCluster.Provider)
+		err = survey.AskOne(prompt, &config.BaseCluster.Provider)
+		handleErr(err)
 	}
 
 	if config.BaseCluster.Region == "" {
 		prompt = &survey.Input{
 			Message: "Please enter the region of your base cluster",
 		}
-		survey.AskOne(prompt, &config.BaseCluster.Region)
+		err = survey.AskOne(prompt, &config.BaseCluster.Region)
+		handleErr(err)
 	}
-	
 
 	if config.BaseCluster.NodeCidr == "" {
 		prompt = &survey.Input{
 			Message: "Please enter the node CIDR of your base cluster in the form: x.x.x.x/y",
 		}
-		survey.AskOne(prompt, &config.BaseCluster.NodeCidr)
+		err = survey.AskOne(prompt, &config.BaseCluster.NodeCidr)
+		handleErr(err)
 		config.Gardenlet.SeedNodeCidr = config.BaseCluster.NodeCidr
 	}
 
@@ -61,29 +79,29 @@ func queryConfig(config *KeConfig) {
 }
 
 func queryDomainConfig() domainConfiguration {
-
+	var err error
 	var domain, provider string
 	var prompt survey.Prompt
 
 	prompt = &survey.Input{
-    Message: "Please enter your domain",
+		Message: "Please enter your domain",
 	}
-	survey.AskOne(prompt, &domain)
+	err = survey.AskOne(prompt, &domain)
+	handleErr(err)
 
 	prompt = &survey.Select{
-    Message: "Define your DNS provider",
-    Options: []string{"azure-dns", "openstack-designate", "aws-route53"},
+		Message: "Define your DNS provider",
+		Options: []string{"azure-dns", "openstack-designate", "aws-route53"},
 	}
-	survey.AskOne(prompt, &provider)
+	err = survey.AskOne(prompt, &provider)
+	handleErr(err)
 
 	domainConfig, _ := createDomainConfiguration(domain, provider)
 	return domainConfig
-	
+
 }
 
-
-func (d *dnsCredentialsAzure) parseCredentials()  {
-
+func (d *dnsCredentialsAzure) parseCredentials() {
 	qs := []*survey.Question{
 		{
 			Name:     "TenantId",
@@ -107,5 +125,6 @@ func (d *dnsCredentialsAzure) parseCredentials()  {
 		},
 	}
 
-	survey.Ask(qs, d)
+	err := survey.Ask(qs, d)
+	handleErr(err)
 }
