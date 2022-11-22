@@ -2,6 +2,7 @@ package install
 
 import (
 	"context"
+	"crypto/rand"
 	"encoding/hex"
 	"fmt"
 	"html/template"
@@ -66,24 +67,16 @@ func Install(kubeconfig string, keConfiguration *KeConfig) {
 // completeKeConfig ...
 func completeKeConfig(config *KeConfig, clientset *kubernetes.Clientset) {
 	if strings.TrimSpace(config.Dashboard.SessionSecret) == "" {
-		tmpRand20 := make([]byte, 20)
-		rand.Read(tmpRand20)
-		config.Dashboard.SessionSecret = hex.EncodeToString(tmpRand20)
+		config.Dashboard.SessionSecret = randHex(20)
 	}
 	if strings.TrimSpace(config.Dashboard.ClientSecret) == "" {
-		tmpRand20 := make([]byte, 20)
-		rand.Read(tmpRand20)
-		config.Dashboard.ClientSecret = hex.EncodeToString(tmpRand20)
+		config.Dashboard.ClientSecret = randHex(20)
 	}
 	if strings.TrimSpace(config.KubeApiServer.BasicAuthPassword) == "" {
-		tmpRand20 := make([]byte, 20)
-		rand.Read(tmpRand20)
-		config.KubeApiServer.BasicAuthPassword = hex.EncodeToString(tmpRand20)
+		config.KubeApiServer.BasicAuthPassword = randHex(20)
 	}
 	if strings.TrimSpace(config.ClusterIdentity) == "" {
-		tmpRand5 := make([]byte, 5)
-		rand.Read(tmpRand5)
-		config.ClusterIdentity = "garden-cluster-" + hex.EncodeToString(tmpRand5) + "-identity"
+		config.ClusterIdentity = "garden-cluster-" + randHex(5) + "-identity"
 	}
 
 	nodes, err := clientset.CoreV1().Nodes().List(context.TODO(), metav1.ListOptions{})
@@ -123,4 +116,10 @@ func completeKeConfig(config *KeConfig, clientset *kubernetes.Clientset) {
 	config.ExtensionsConfig["provider-" + config.BaseCluster.Provider] = map[string]bool{"enabled": true}
 	config.ExtensionsConfig[dnsProviderToProvider[config.DomainConfig.Provider]] = map[string]bool{"enabled": true}
 
+}
+
+func randHex(bytes int) string {
+	byteArr := make([]byte, bytes)
+	rand.Read(byteArr)
+	return hex.EncodeToString(byteArr)
 }
