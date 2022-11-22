@@ -25,7 +25,7 @@ func queryConfig(config *KeConfig) {
 		prompt = &survey.Input{
 			Message: "Please enter your email address",
 		}
-		err = survey.AskOne(prompt, &config.EmailAddress)
+		err = survey.AskOne(prompt, &config.EmailAddress, withValidator("required,email"))
 		handleErr(err)
 		config.Issuer.Acme.Email = config.EmailAddress
 	}
@@ -34,7 +34,7 @@ func queryConfig(config *KeConfig) {
 		prompt = &survey.Password{
 			Message: "Please enter the administrator password to use",
 		}
-		err = survey.AskOne(prompt, &config.AdminPassword)
+		err = survey.AskOne(prompt, &config.AdminPassword, withValidator("required"))
 		handleErr(err)
 	}
 
@@ -42,7 +42,7 @@ func queryConfig(config *KeConfig) {
 		prompt = &survey.Input{
 			Message: "Please enter your git repository remote, e.g. git@github.com:User/Repo.git",
 		}
-		err = survey.AskOne(prompt, &config.GitRepo)
+		err = survey.AskOne(prompt, &config.GitRepo, withValidator("required"))
 		handleErr(err)
 	}
 
@@ -51,7 +51,7 @@ func queryConfig(config *KeConfig) {
 			Message: "Select the provider of your base cluster",
 			Options: []string{"hcloud", "azure", "aws", "openstack"},
 		}
-		err = survey.AskOne(prompt, &config.BaseCluster.Provider)
+		err = survey.AskOne(prompt, &config.BaseCluster.Provider, withValidator("required"))
 		handleErr(err)
 	}
 
@@ -59,7 +59,7 @@ func queryConfig(config *KeConfig) {
 		prompt = &survey.Input{
 			Message: "Please enter the region of your base cluster",
 		}
-		err = survey.AskOne(prompt, &config.BaseCluster.Region)
+		err = survey.AskOne(prompt, &config.BaseCluster.Region, withValidator("required"))
 		handleErr(err)
 	}
 
@@ -67,7 +67,7 @@ func queryConfig(config *KeConfig) {
 		prompt = &survey.Input{
 			Message: "Please enter the node CIDR of your base cluster in the form: x.x.x.x/y",
 		}
-		err = survey.AskOne(prompt, &config.BaseCluster.NodeCidr)
+		err = survey.AskOne(prompt, &config.BaseCluster.NodeCidr, withValidator("required,cidr"))
 		handleErr(err)
 		config.Gardenlet.SeedNodeCidr = config.BaseCluster.NodeCidr
 	}
@@ -86,19 +86,18 @@ func queryDomainConfig() domainConfiguration {
 	prompt = &survey.Input{
 		Message: "Please enter your domain",
 	}
-	err = survey.AskOne(prompt, &domain)
+	err = survey.AskOne(prompt, &domain, withValidator("required,fqdn"))
 	handleErr(err)
 
 	prompt = &survey.Select{
 		Message: "Define your DNS provider",
 		Options: []string{"azure-dns", "openstack-designate", "aws-route53"},
 	}
-	err = survey.AskOne(prompt, &provider)
+	err = survey.AskOne(prompt, &provider, withValidator("required"))
 	handleErr(err)
 
 	domainConfig, _ := createDomainConfiguration(domain, provider)
 	return domainConfig
-
 }
 
 func (d *dnsCredentialsAzure) parseCredentials() {
@@ -106,25 +105,29 @@ func (d *dnsCredentialsAzure) parseCredentials() {
 		{
 			Name:     "TenantId",
 			Prompt:   &survey.Input{Message: "Azure tenant ID?"},
-			Validate: survey.Required,
+			Validate: makeValidator("required"),
 		},
 		{
 			Name:     "SubscriptionId",
 			Prompt:   &survey.Input{Message: "Azure subscription ID?"},
-			Validate: survey.Required,
+			Validate: makeValidator("required"),
 		},
 		{
 			Name:     "SecretId",
 			Prompt:   &survey.Input{Message: "Azure secret ID?"},
-			Validate: survey.Required,
+			Validate: makeValidator("required"),
 		},
 		{
 			Name:     "SecretValue",
 			Prompt:   &survey.Input{Message: "Azure subscription ID?"},
-			Validate: survey.Required,
+			Validate: makeValidator("required"),
 		},
 	}
 
 	err := survey.Ask(qs, d)
 	handleErr(err)
+}
+
+func withValidator(tag string) survey.AskOpt {
+	return survey.WithValidator(makeValidator(tag))
 }
