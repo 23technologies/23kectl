@@ -53,7 +53,7 @@ to quickly create a Cobra application.`,
 
 		install.Install(kubeConfig, &config)
 		data, err := yaml.Marshal(&config)
-		err = os.WriteFile(viper.GetViper().ConfigFileUsed(), data, 0)
+		err = os.WriteFile(viper.GetViper().ConfigFileUsed(), data, 0600)
 	},
 }
 
