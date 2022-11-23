@@ -1,11 +1,5 @@
 package install
 
-import (
-	"fmt"
-
-	"gopkg.in/yaml.v3"
-)
-
 type KeConfig struct {
 	Version          string              `yaml:"version"`
 	GitRepo          string              `yaml:"gitrepo"`
@@ -62,34 +56,34 @@ type dnsCredentials interface {
 }
 
 type domainConfiguration struct {
-	Domain      string         `yaml:"domain"`
-	Provider    string         `yaml:"provider"`
-	Credentials dnsCredentials `yaml:"-"`
+	Domain      string      `yaml:"domain"`
+	Provider    string      `yaml:"provider"`
+	Credentials interface{} `yaml:"credentials"`
 }
 
-func (s *domainConfiguration) UnmarshalYAML(n *yaml.Node) error {
-
-	type S domainConfiguration
-	type T struct {
-		*S          `yaml:",inline"`
-		Credentials yaml.Node `yaml:"credentials"`
-	}
-
-	obj := &T{S: (*S)(s)}
-	if err := n.Decode(obj); err != nil {
-		return err
-	}
-	switch s.Provider {
-	case "azure-dns":
-		s.Credentials = new(dnsCredentialsAzure)
-	default:
-		panic("provider unknown")
-	}
-
-	fmt.Println("debug")
-	return obj.Credentials.Decode(s.Credentials)
-
-}
+//func (s *domainConfiguration) UnmarshalYAML(n *yaml.Node) error {
+//	type T1 struct {
+//		Domain   string `yaml:"domain"`
+//		Provider string `yaml:"provider"`
+//	}
+//
+//	type T2 struct {
+//		Credentials yaml.Node `yaml:"credentials"`
+//	}
+//
+//
+//
+//	err := n.Decode(s)
+//
+//	switch s.Provider {
+//	case "azure-dns":
+//		s.Credentials = new(dnsCredentialsAzure)
+//	default:
+//		panic("provider unknown")
+//	}
+//
+//	return err
+//}
 
 // func (s *domainConfiguration) MarshalYAML() (interface{}, error) {
 

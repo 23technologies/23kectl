@@ -17,3 +17,4 @@
 .idea/
 config.yaml
 kubeconfig
+out.yaml

@@ -5,23 +5,22 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
-	"html/template"
-	"net"
-	"os"
-	"strings"
-
 	"github.com/Masterminds/sprig/v3"
-	yaml "gopkg.in/yaml.v2"
+	"github.com/go-git/go-git/v5"
+	"gopkg.in/yaml.v2"
+	"html/template"
 	apiv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
+	"net"
+	"os"
+	"strings"
 )
 
 // install ...
 
 func Install(kubeconfig string, keConfiguration *KeConfig) {
-
 	fmt.Println("Our install code here")
 
 	config, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
@@ -49,18 +48,76 @@ func Install(kubeconfig string, keConfiguration *KeConfig) {
 		return string(result)
 	}
 
+	file, err := os.OpenFile("out.yaml", os.O_CREATE|os.O_WRONLY, 0600)
+	if err != nil {
+		panic(err)
+	}
+
 	for i, sec := range keConfigTpl() {
 		tpl := template.New(fmt.Sprint("keConfig", i)).Funcs(funcMap)
-		tpl.Parse(sec)
-		tpl.Execute(os.Stdout, keConfiguration)
+
+		_, err = tpl.Parse(sec)
+		if err != nil {
+			panic(err)
+		}
+
+		err = tpl.Execute(file, keConfiguration)
+		if err != nil {
+			panic(err)
+		}
+
+		file.WriteString("\n---\n")
 		if err != nil {
 			panic(err)
 		}
 	}
+	err = file.Close()
+	if err != nil {
+		panic(err)
+	}
 
 	pods, err := clientset.CoreV1().Pods("").List(context.TODO(), metav1.ListOptions{})
+	if err != nil {
+		panic(err)
+	}
 
 	_ = pods
+
+	clone23KE()
+	setupFlux()
+	setupDeployKey()
+}
+
+func clone23KE() {
+	dir := "/tmp/23ke"
+	URL := "git@github.com:23technologies/23ke.git"
+
+	// https://github.com/go-git/go-git/issues/411
+	// https://github.com/golang/go/issues/29286
+	_, err := git.PlainClone(dir, false, &git.CloneOptions{
+		URL:      URL,
+		Progress: os.Stdout,
+	})
+
+	if err != nil {
+		panic(err)
+	}
+}
+
+func makeTools() {
+	// todo make tools
+	// make -f hack/tools/tools.mk all
+	// export PATH=hack/tools/bin:$PATH
+}
+
+func setupDeployKey() {
+	// todo: create secret, wait for deploy key to be added
+	// flux create secret git 23ke-key --url=ssh://git@github.com/23technologies/23ke
+}
+
+func setupFlux() {
+	// todo: install flux
+	// kubectl apply -f flux-system/gotk-components.yaml
 }
 
 // completeKeConfig ...
