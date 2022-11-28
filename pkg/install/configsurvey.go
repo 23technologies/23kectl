@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/AlecAivazis/survey/v2/terminal"
+	"golang.org/x/crypto/bcrypt"
 	"os"
 )
 
@@ -31,10 +32,16 @@ func queryConfig(config *KeConfig) {
 	}
 
 	if config.AdminPassword == "" {
+		var plainPassword string
+
 		prompt = &survey.Password{
 			Message: "Please enter the administrator password to use",
 		}
-		err = survey.AskOne(prompt, &config.AdminPassword, withValidator("required"))
+		err = survey.AskOne(prompt, &plainPassword, withValidator("required"))
+		handleErr(err)
+
+		hash, err := bcrypt.GenerateFromPassword(([]byte)(plainPassword), 10)
+		config.AdminPassword = string(hash)
 		handleErr(err)
 	}
 

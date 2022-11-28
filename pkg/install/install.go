@@ -5,119 +5,150 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
-	"github.com/Masterminds/sprig/v3"
-	"github.com/go-git/go-git/v5"
-	"gopkg.in/yaml.v2"
-	"html/template"
 	apiv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 	"net"
 	"os"
+	"os/exec"
+	"path"
 	"strings"
 )
 
 // install ...
 
+const tmpDir = "/tmp"
+
 func Install(kubeconfig string, keConfiguration *KeConfig) {
+	makeCmd := func(name string, arg ...string) *exec.Cmd {
+		cmd := exec.Command(name, arg...)
+		cmd.Env = append(cmd.Environ(), "KUBECONFIG="+kubeconfig)
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+
+		return cmd
+	}
+
 	fmt.Println("Our install code here")
 
 	config, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
-
-	if err != nil {
-		panic(err.Error())
-	}
+	_panic(err)
 
 	// create the clientset
 	clientset, err := kubernetes.NewForConfig(config)
-	if err != nil {
-		panic(err.Error())
-	}
+	_panic(err)
 
-	// keConfiguration := newKeConfig()
 	completeKeConfig(keConfiguration, clientset)
 
-	// ------ templating -----
-	funcMap := sprig.FuncMap()
-	funcMap["toYaml"] = func(in interface{}) string {
-		result, err := yaml.Marshal(in)
-		if err != nil {
-			panic("Error during marshaling")
-		}
-		return string(result)
-	}
+	configRepoDir := path.Join(tmpDir, "23ke-config")
+	_23KERepoDir := path.Join(tmpDir, "23ke")
+	os.RemoveAll(configRepoDir)
+	os.RemoveAll(_23KERepoDir)
 
-	file, err := os.OpenFile("out.yaml", os.O_CREATE|os.O_WRONLY, 0600)
+	err = updateConfigRepo(configRepoDir, keConfiguration, kubeconfig)
+	_panic(err)
+	os.Exit(111)
+	// fmt.Printf("Cloning 23ke repo to %s\n", _23KERepoDir)
+	// err = makeCmd("git", "clone", "git@github.com:23technologies/23ke.git", _23KERepoDir).Run()
+	// _panic(err)
+	//
+	//fmt.Printf("Installing Flux\n")
+	//cmd = makeCmd("kubectl", "apply", "-f", path.Join(_23KERepoDir, "flux-system", "gotk-components.yaml"))
+	//err = cmd.Run()
+	//_panic(err)
+	//pressEnterToContinue()
+	//
+	//fmt.Printf("Generating 23ke deploy key\n")
+	//err = makeCmd("flux", "create", "secret", "git", "23ke-key", "--url=ssh://git@github.com/23technologies/23ke").Run()
+	//_panic(err)
+	//pressEnterToContinue()
+
+	//fmt.Printf("Generating 23ke-config deploy key\n")
+	//err = makeCmd("flux", "create", "secret", "git", "23ke-config-key", "--url=ssh://git@github.com/j2l4e/23test").Run()
+	//_panic(err)
+	//pressEnterToContinue()
+
+	fmt.Printf("Creating '23ke-config' secret\n")
+	filePath := path.Join(tmpDir, "23ke-config.yaml")
+	file, err := os.OpenFile(filePath, os.O_WRONLY|os.O_CREATE, 0600)
 	if err != nil {
+		file.Close()
 		panic(err)
 	}
+	err = getLocalTemplate().ExecuteTemplate(file, "23ke-config.yaml", keConfiguration)
+	file.Close()
+	_panic(err)
+	err = makeCmd("kubectl", "apply", "-f", filePath).Run()
+	_panic(err)
 
-	for i, sec := range keConfigTpl() {
-		tpl := template.New(fmt.Sprint("keConfig", i)).Funcs(funcMap)
+	fmt.Printf("Creating flux git source '23ke'\n")
+	err = makeCmd("flux", "create", "source", "git", "23ke", "--secret-ref=23ke-key", "--url=ssh://git@github.com/23technologies/23ke", "--tag=v1.60.0", "--interval=1m").Run()
+	_panic(err)
 
-		_, err = tpl.Parse(sec)
-		if err != nil {
-			panic(err)
-		}
+	fmt.Printf("Creating flux git source '23ke-config'\n")
+	url := fmt.Sprintf("ssh://%s", strings.Replace(keConfiguration.GitRepo, ":", "/", 1))
+	err = makeCmd("flux", "create", "source", "git", "23ke-config", "--secret-ref=23ke-config-key", "--url="+url, "--branch=main", "--interval=1m").Run()
+	_panic(err)
 
-		err = tpl.Execute(file, keConfiguration)
-		if err != nil {
-			panic(err)
-		}
+	fmt.Printf("Creating kustomization '23ke-base'\n")
+	err = makeCmd("flux", "create", "kustomization", "23ke-base", "--namespace=flux-system", "--source=GitRepository/23ke", `--path=./`, "--prune=false", "--interval=1m").Run()
+	_panic(err)
 
-		file.WriteString("\n---\n")
-		if err != nil {
-			panic(err)
-		}
-	}
-	err = file.Close()
-	if err != nil {
-		panic(err)
-	}
+	fmt.Printf("Creating flux git source '23ke-env'\n")
+	err = makeCmd("flux", "create", "kustomization", "23ke-env", "--namespace=flux-system", "--source=GitRepository/23ke-config", `--path=./my-env`, "--prune=false", "--interval=1m").Run()
+	_panic(err)
 
-	pods, err := clientset.CoreV1().Pods("").List(context.TODO(), metav1.ListOptions{})
-	if err != nil {
-		panic(err)
-	}
-
-	_ = pods
-
-	clone23KE()
-	setupFlux()
-	setupDeployKey()
+	//pods, err := clientset.CoreV1().Pods("").List(context.TODO(), metav1.ListOptions{})
+	//_panic(err)
+	//
+	//_ = pods
 }
 
-func clone23KE() {
-	dir := "/tmp/23ke"
-	URL := "git@github.com:23technologies/23ke.git"
+func updateConfigRepo(configRepoDir string, keConfig *KeConfig, kubeconfig string) error {
+	makeCmd := func(name string, arg ...string) *exec.Cmd {
+		cmd := exec.Command(name, arg...)
+		cmd.Env = append(cmd.Environ(), "KUBECONFIG="+kubeconfig)
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
 
-	// https://github.com/go-git/go-git/issues/411
-	// https://github.com/golang/go/issues/29286
-	_, err := git.PlainClone(dir, false, &git.CloneOptions{
-		URL:      URL,
-		Progress: os.Stdout,
-	})
-
-	if err != nil {
-		panic(err)
+		return cmd
 	}
-}
 
-func makeTools() {
-	// todo make tools
-	// make -f hack/tools/tools.mk all
-	// export PATH=hack/tools/bin:$PATH
-}
+	var cmd *exec.Cmd
+	var err error
 
-func setupDeployKey() {
-	// todo: create secret, wait for deploy key to be added
-	// flux create secret git 23ke-key --url=ssh://git@github.com/23technologies/23ke
-}
+	fmt.Printf("Cloning config repo to %s\n", configRepoDir)
+	err = makeCmd("git", "clone", keConfig.GitRepo, configRepoDir).Run()
+	_panic(err)
 
-func setupFlux() {
-	// todo: install flux
-	// kubectl apply -f flux-system/gotk-components.yaml
+	cmd = makeCmd("git", "rm", "-r", ".")
+	cmd.Dir = configRepoDir
+	err = cmd.Run()
+	_panic(err)
+
+	fmt.Printf("Writing new config to %s\n", configRepoDir)
+	err = writeConfigDir(configRepoDir, keConfig)
+	_panic(err)
+
+	cmd = makeCmd("git", "add", ".")
+	cmd.Dir = configRepoDir
+	err = cmd.Run()
+	_panic(err)
+
+	fmt.Printf("Commiting to config repo\n")
+	cmd = makeCmd("git", "commit", "--no-gpg-sign", "-m", "Config update through 23kectl") // todo prompt for commit message or let git handle it
+	cmd.Dir = configRepoDir
+	err = cmd.Run()
+	_panic(err)
+
+	fmt.Printf("Pushing to config repo\n")
+	cmd = makeCmd("git", "push")
+	cmd.Dir = configRepoDir
+	err = cmd.Run()
+	_panic(err)
+
+	return nil
 }
 
 // completeKeConfig ...
@@ -135,11 +166,13 @@ func completeKeConfig(config *KeConfig, clientset *kubernetes.Clientset) {
 		config.ClusterIdentity = "garden-cluster-" + randHex(5) + "-identity"
 	}
 
-	nodes, err := clientset.CoreV1().Nodes().List(context.TODO(), metav1.ListOptions{})
-	if err != nil {
-		panic(err)
+	if strings.TrimSpace(config.Gardenlet.SeedPodCidr) == "" {
+		// https://github.com/gardener/gardener/blob/e31175861175410185b492b861cc90ba5491a8ee/cmd/gardenlet/app/bootstrappers/seed_config.go#L73
+		// todo find proper way to find PodCIDR
+		nodes, err := clientset.CoreV1().Nodes().List(context.TODO(), metav1.ListOptions{})
+		_panic(err)
+		config.Gardenlet.SeedPodCidr = nodes.Items[0].Spec.PodCIDR
 	}
-	config.Gardenlet.SeedPodCidr = nodes.Items[0].Spec.PodCIDR
 
 	dummySvc := &apiv1.Service{
 		ObjectMeta: metav1.ObjectMeta{
@@ -154,7 +187,7 @@ func completeKeConfig(config *KeConfig, clientset *kubernetes.Clientset) {
 
 	config.Gardenlet.SeedServiceCidr = strings.SplitAfter(dummyErr.Error(), "The range of valid IPs is ")[1]
 
-	clusterIp, ipnet, err := net.ParseCIDR(config.Gardenlet.SeedServiceCidr)
+	clusterIp, ipnet, _ := net.ParseCIDR(config.Gardenlet.SeedServiceCidr)
 
 	clusterIp[len(clusterIp)-2] += 1
 	clusterIp[len(clusterIp)-1] += 1
