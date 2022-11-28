@@ -5,6 +5,10 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
+	"github.com/go-git/go-billy/v5/memfs"
+	"github.com/go-git/go-git/v5"
+	"github.com/go-git/go-git/v5/plumbing/object"
+	"github.com/go-git/go-git/v5/storage/memory"
 	apiv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -14,11 +18,14 @@ import (
 	"os/exec"
 	"path"
 	"strings"
+	"time"
 )
 
 // install ...
 
 const tmpDir = "/tmp"
+const _23KERepo = "git@github.com:23technologies/23ke.git"
+const _23KERepoURI = "ssh://git@github.com/23technologies/23ke.git"
 
 func Install(kubeconfig string, keConfiguration *KeConfig) {
 	makeCmd := func(name string, arg ...string) *exec.Cmd {
@@ -41,33 +48,35 @@ func Install(kubeconfig string, keConfiguration *KeConfig) {
 
 	completeKeConfig(keConfiguration, clientset)
 
-	configRepoDir := path.Join(tmpDir, "23ke-config")
 	_23KERepoDir := path.Join(tmpDir, "23ke")
-	os.RemoveAll(configRepoDir)
 	os.RemoveAll(_23KERepoDir)
 
-	err = updateConfigRepo(configRepoDir, keConfiguration, kubeconfig)
+	var cmd *exec.Cmd
+	err = updateConfigRepo(keConfiguration)
 	_panic(err)
-	os.Exit(111)
-	// fmt.Printf("Cloning 23ke repo to %s\n", _23KERepoDir)
-	// err = makeCmd("git", "clone", "git@github.com:23technologies/23ke.git", _23KERepoDir).Run()
-	// _panic(err)
-	//
-	//fmt.Printf("Installing Flux\n")
-	//cmd = makeCmd("kubectl", "apply", "-f", path.Join(_23KERepoDir, "flux-system", "gotk-components.yaml"))
-	//err = cmd.Run()
-	//_panic(err)
-	//pressEnterToContinue()
-	//
-	//fmt.Printf("Generating 23ke deploy key\n")
-	//err = makeCmd("flux", "create", "secret", "git", "23ke-key", "--url=ssh://git@github.com/23technologies/23ke").Run()
-	//_panic(err)
-	//pressEnterToContinue()
 
-	//fmt.Printf("Generating 23ke-config deploy key\n")
-	//err = makeCmd("flux", "create", "secret", "git", "23ke-config-key", "--url=ssh://git@github.com/j2l4e/23test").Run()
-	//_panic(err)
-	//pressEnterToContinue()
+	fmt.Printf("Cloning 23ke repo to %s\n", _23KERepoDir)
+	_, err = git.PlainClone(_23KERepoDir, false, &git.CloneOptions{
+		URL:               _23KERepo,
+		RecurseSubmodules: git.DefaultSubmoduleRecursionDepth,
+	})
+	_panic(err)
+
+	fmt.Printf("Installing Flux\n")
+	cmd = makeCmd("kubectl", "apply", "-f", path.Join(_23KERepoDir, "flux-system", "gotk-components.yaml"))
+	err = cmd.Run()
+	_panic(err)
+	pressEnterToContinue()
+
+	fmt.Printf("Generating 23ke deploy key\n")
+	err = makeCmd("flux", "create", "secret", "git", "23ke-key", "--url="+_23KERepoURI).Run()
+	_panic(err)
+	pressEnterToContinue()
+
+	fmt.Printf("Generating 23ke-config deploy key\n")
+	err = makeCmd("flux", "create", "secret", "git", "23ke-config-key", "--url=ssh://git@github.com/j2l4e/23test").Run()
+	_panic(err)
+	pressEnterToContinue()
 
 	fmt.Printf("Creating '23ke-config' secret\n")
 	filePath := path.Join(tmpDir, "23ke-config.yaml")
@@ -83,7 +92,7 @@ func Install(kubeconfig string, keConfiguration *KeConfig) {
 	_panic(err)
 
 	fmt.Printf("Creating flux git source '23ke'\n")
-	err = makeCmd("flux", "create", "source", "git", "23ke", "--secret-ref=23ke-key", "--url=ssh://git@github.com/23technologies/23ke", "--tag=v1.60.0", "--interval=1m").Run()
+	err = makeCmd("flux", "create", "source", "git", "23ke", "--secret-ref=23ke-key", "--url="+_23KERepoURI, "--tag=v1.60.0", "--interval=1m").Run()
 	_panic(err)
 
 	fmt.Printf("Creating flux git source '23ke-config'\n")
@@ -105,48 +114,48 @@ func Install(kubeconfig string, keConfiguration *KeConfig) {
 	//_ = pods
 }
 
-func updateConfigRepo(configRepoDir string, keConfig *KeConfig, kubeconfig string) error {
-	makeCmd := func(name string, arg ...string) *exec.Cmd {
-		cmd := exec.Command(name, arg...)
-		cmd.Env = append(cmd.Environ(), "KUBECONFIG="+kubeconfig)
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-
-		return cmd
-	}
-
-	var cmd *exec.Cmd
+func updateConfigRepo(keConfig *KeConfig) error {
 	var err error
-
-	fmt.Printf("Cloning config repo to %s\n", configRepoDir)
-	err = makeCmd("git", "clone", keConfig.GitRepo, configRepoDir).Run()
+	workTreeFs := memfs.New()
+	fmt.Printf("Cloning config repo to memory")
+	repository, err := git.Clone(memory.NewStorage(), workTreeFs, &git.CloneOptions{
+		URL: keConfig.GitRepo,
+	})
 	_panic(err)
 
-	cmd = makeCmd("git", "rm", "-r", ".")
-	cmd.Dir = configRepoDir
-	err = cmd.Run()
+	worktree, err := repository.Worktree()
 	_panic(err)
 
-	fmt.Printf("Writing new config to %s\n", configRepoDir)
-	err = writeConfigDir(configRepoDir, keConfig)
+	_, err = worktree.Remove(".")
 	_panic(err)
 
-	cmd = makeCmd("git", "add", ".")
-	cmd.Dir = configRepoDir
-	err = cmd.Run()
+	fmt.Printf("Writing new config")
+	err = writeConfigDir(workTreeFs, ".", keConfig)
 	_panic(err)
 
-	fmt.Printf("Commiting to config repo\n")
-	cmd = makeCmd("git", "commit", "--no-gpg-sign", "-m", "Config update through 23kectl") // todo prompt for commit message or let git handle it
-	cmd.Dir = configRepoDir
-	err = cmd.Run()
+	_, err = worktree.Add(".")
 	_panic(err)
 
-	fmt.Printf("Pushing to config repo\n")
-	cmd = makeCmd("git", "push")
-	cmd.Dir = configRepoDir
-	err = cmd.Run()
+	status, err := worktree.Status()
 	_panic(err)
+
+	if status.IsClean() {
+		fmt.Printf("Git reports no changes to config repo")
+	} else {
+		fmt.Printf("Commiting to config repo\n")
+		_, err = worktree.Commit("Config update through 23kectl", &git.CommitOptions{
+			Author: &object.Signature{
+				Name:  "John Doe",
+				Email: "john@doe.org",
+				When:  time.Now(),
+			},
+		})
+		_panic(err)
+
+		fmt.Printf("Pushing to config repo\n")
+		err = repository.Push(&git.PushOptions{})
+		_panic(err)
+	}
 
 	return nil
 }

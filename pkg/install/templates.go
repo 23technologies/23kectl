@@ -4,6 +4,7 @@ import (
 	"embed"
 	"fmt"
 	"github.com/Masterminds/sprig/v3"
+	"github.com/go-git/go-billy/v5"
 	"gopkg.in/yaml.v3"
 	"io/fs"
 	"os"
@@ -122,7 +123,7 @@ func getConfigTemplate() *template.Template {
 	return configTemplate
 }
 
-func writeConfigDir(gitRoot string, keConfig *KeConfig) error {
+func writeConfigDir(filesystem billy.Filesystem, gitRoot string, keConfig *KeConfig) error {
 	// todo: wipe gitRoot to account for deleted files
 
 	for _, tpl := range getConfigTemplate().Templates() {
@@ -131,12 +132,12 @@ func writeConfigDir(gitRoot string, keConfig *KeConfig) error {
 		destPath := path.Join(gitRoot, name)
 		destDir := path.Dir(destPath)
 
-		err := os.MkdirAll(destDir, os.ModeDir|0700)
+		err := filesystem.MkdirAll(destDir, os.ModeDir|0700)
 		if err != nil {
 			return err
 		}
 
-		file, err := os.OpenFile(destPath, os.O_CREATE|os.O_WRONLY, 0600)
+		file, err := filesystem.OpenFile(destPath, os.O_CREATE|os.O_WRONLY, 0600)
 		if err != nil {
 			return err
 		}
