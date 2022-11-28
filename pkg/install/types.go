@@ -96,9 +96,9 @@ type domainConfiguration struct {
 // }
 
 type dnsCredentialsAzure struct {
-	TenantId       string `yaml:"tenantId"`
-	SubscriptionId string `yaml:"subscriptionId"`
-	SecretId       string `yaml:"secretId"`
+	TenantId       string `yaml:"tenantID"`
+	SubscriptionId string `yaml:"subscriptionID"`
+	SecretId       string `yaml:"secretID"`
 	SecretValue    string `yaml:"secretValue"`
 }
 
