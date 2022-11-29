@@ -5,18 +5,22 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
+	"github.com/fluxcd/flux2/pkg/manifestgen/sourcesecret"
 	"github.com/go-git/go-billy/v5/memfs"
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing/object"
 	"github.com/go-git/go-git/v5/storage/memory"
 	apiv1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 	"net"
+	"net/url"
 	"os"
 	"os/exec"
 	"path"
+	k8syaml "sigs.k8s.io/yaml"
 	"strings"
 	"time"
 )
@@ -68,6 +72,8 @@ func Install(kubeconfig string, keConfiguration *KeConfig) {
 	_panic(err)
 	pressEnterToContinue()
 
+	generate23KEDeployKey(clientset)
+
 	fmt.Printf("Generating 23ke deploy key\n")
 	err = makeCmd("flux", "create", "secret", "git", "23ke-key", "--url="+_23KERepoURI).Run()
 	_panic(err)
@@ -112,6 +118,40 @@ func Install(kubeconfig string, keConfiguration *KeConfig) {
 	//_panic(err)
 	//
 	//_ = pods
+}
+
+func generate23KEDeployKey(clientset *kubernetes.Clientset) error {
+	var err error
+
+	namespace := "flux-system"
+	secretName := "23ke-key"
+	fluxRepoSecret := corev1.Secret{}
+	repourl, err := url.Parse(_23KERepoURI)
+	if err != nil {
+		return err
+	}
+
+	// define some options for the generation of the flux source secret
+	sourceSecOpts := sourcesecret.MakeDefaultOptions()
+	sourceSecOpts.PrivateKeyAlgorithm = "ed25519"
+	sourceSecOpts.SSHHostname = repourl.Hostname()
+	sourceSecOpts.Name = secretName
+
+	// generate the flux source secret manifest and store it as []byte in the shootResources
+	secManifest, err := sourcesecret.Generate(sourceSecOpts)
+
+	// lastly, also deploy the flux source secret into the projectNamespace in the seed cluster
+	// in order to reuse it, when other shoots are created
+	err = k8syaml.Unmarshal([]byte(secManifest.Content), &fluxRepoSecret)
+
+	_panic(err)
+	fluxRepoSecret.SetNamespace(namespace)
+
+	fmt.Println(fluxRepoSecret.StringData["identity.pub"])
+	clientset.CoreV1().Secrets(namespace).Create(context.TODO(), &fluxRepoSecret, metav1.CreateOptions{})
+	//a.clientGardenlet.Create(context.TODO(), &fluxRepoSecret)
+
+	return nil
 }
 
 func updateConfigRepo(keConfig *KeConfig) error {
