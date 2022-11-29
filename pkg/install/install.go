@@ -12,7 +12,9 @@ import (
 	"github.com/go-git/go-git/v5/storage/memory"
 	apiv1 "k8s.io/api/core/v1"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 	"net"
@@ -74,6 +76,8 @@ func Install(kubeconfig string, keConfiguration *KeConfig) {
 	kubeconfigArgs.KubeConfig = &kubeconfig
 
 	var kubeclientOptions = new(runclient.Options)
+	kubeClient, err := utils.KubeClient(kubeconfigArgs, kubeclientOptions)
+
 	tmpDir, err := manifestgen.MkdirTempAbs("", *kubeconfigArgs.Namespace)
 	_panic(err)
 
@@ -89,14 +93,15 @@ func Install(kubeconfig string, keConfiguration *KeConfig) {
 	_, err = utils.Apply(context.Background(), kubeconfigArgs, kubeclientOptions, tmpDir, path.Join(tmpDir, manifest.Path))
 	_panic(err)
 
+	fmt.Printf("Generating 23ke deploy key\n")
+	generate23KEDeployKey(clientset)
 	pressEnterToContinue()
 
-	generate23KEDeployKey(clientset)
-
-	//fmt.Printf("Generating 23ke-config deploy key\n")
-	//err = makeCmd("flux", "create", "secret", "git", "23ke-config-key", "--url=ssh://git@github.com/j2l4e/23test").Run()
-	//_panic(err)
-	//pressEnterToContinue()
+	fmt.Printf("Generating 23ke-config deploy key\n")
+	// todo
+	err = makeCmd("flux", "create", "secret", "git", "23ke-config-key", "--url=ssh://git@github.com/j2l4e/23test").Run()
+	_panic(err)
+	pressEnterToContinue()
 
 	fmt.Printf("Creating '23ke-config' secret\n")
 	filePath := path.Join(tmpDir, "23ke-config.yaml")
@@ -156,27 +161,56 @@ func Install(kubeconfig string, keConfiguration *KeConfig) {
 		},
 		Status: sourcecontrollerv1beta2.GitRepositoryStatus{},
 	}
-	kubeClient, err := utils.KubeClient(kubeconfigArgs, kubeclientOptions)
 
-	// todo update if exists
-	err = kubeClient.Create(context.TODO(), &gitrepo23ke, &client.CreateOptions{})
-	_panic(err)
-	// todo update if exists
-	err = kubeClient.Create(context.TODO(), &gitrepo23keconfig, &client.CreateOptions{})
+	exists, err := objectExists(kubeClient, "flux-system", "23ke")
 	_panic(err)
 
-	fmt.Printf("Creating flux git source '23ke-config'\n")
-	url := fmt.Sprintf("ssh://%s", strings.Replace(keConfiguration.GitRepo, ":", "/", 1))
-	err = makeCmd("flux", "create", "source", "git", "23ke-config", "--secret-ref=23ke-config-key", "--url="+url, "--branch=main", "--interval=1m").Run()
+	if exists {
+		// todo update if exists
+		fmt.Printf("Updating flux git source '23ke'\n")
+	} else {
+		fmt.Printf("Creating flux git source '23ke'\n")
+		err = kubeClient.Create(context.TODO(), &gitrepo23ke, &client.CreateOptions{})
+		_panic(err)
+	}
+
+	exists, err = objectExists(kubeClient, "flux-system", "23ke-config")
 	_panic(err)
 
-	fmt.Printf("Creating kustomization '23ke-base'\n")
-	err = makeCmd("flux", "create", "kustomization", "23ke-base", "--namespace=flux-system", "--source=GitRepository/23ke", `--path=./`, "--prune=false", "--interval=1m").Run()
+	if exists {
+		// todo update if exists
+		fmt.Printf("Updating flux git source '23ke-config'\n")
+	} else {
+		fmt.Printf("Creating flux git source '23ke-config'\n")
+		err = kubeClient.Create(context.TODO(), &gitrepo23keconfig, &client.CreateOptions{})
+		_panic(err)
+	}
+
+	exists, err = objectExists(kubeClient, "flux-system", "23ke-base")
 	_panic(err)
 
-	fmt.Printf("Creating flux git source '23ke-env'\n")
-	err = makeCmd("flux", "create", "kustomization", "23ke-env", "--namespace=flux-system", "--source=GitRepository/23ke-config", `--path=./my-env`, "--prune=false", "--interval=1m").Run()
+	if exists {
+		// todo update if exists
+		fmt.Printf("Updating kustomization '23ke-base'\n")
+	} else {
+		fmt.Printf("Creating kustomization '23ke-base'\n")
+		// todo
+		err = makeCmd("flux", "create", "kustomization", "23ke-base", "--namespace=flux-system", "--source=GitRepository/23ke", `--path=./`, "--prune=false", "--interval=1m").Run()
+		_panic(err)
+	}
+
+	exists, err = objectExists(kubeClient, "flux-system", "23ke-env")
 	_panic(err)
+
+	if exists {
+		// todo update if exists
+		fmt.Printf("Updating flux git source '23ke-env'\n")
+	} else {
+		fmt.Printf("Creating flux git source '23ke-env'\n")
+		// todo
+		err = makeCmd("flux", "create", "kustomization", "23ke-env", "--namespace=flux-system", "--source=GitRepository/23ke-config", `--path=./my-env`, "--prune=false", "--interval=1m").Run()
+		_panic(err)
+	}
 
 	//pods, err := clientset.CoreV1().Pods("").List(context.TODO(), metav1.ListOptions{})
 	//_panic(err)
@@ -185,35 +219,40 @@ func Install(kubeconfig string, keConfiguration *KeConfig) {
 }
 
 func generate23KEDeployKey(clientset *kubernetes.Clientset) error {
-	var err error
-
 	namespace := "flux-system"
 	secretName := "23ke-key"
-	fluxRepoSecret := corev1.Secret{}
-	repourl, err := url.Parse(_23KERepoURI)
-	if err != nil {
-		return err
+
+	// todo check if exists
+	exists := false
+
+	if exists {
+		// todo display if exists
+	} else {
+		fluxRepoSecret := corev1.Secret{}
+		repourl, err := url.Parse(_23KERepoURI)
+		if err != nil {
+			return err
+		}
+
+		// define some options for the generation of the flux source secret
+		sourceSecOpts := sourcesecret.MakeDefaultOptions()
+		sourceSecOpts.PrivateKeyAlgorithm = "ed25519"
+		sourceSecOpts.SSHHostname = repourl.Hostname()
+		sourceSecOpts.Name = secretName
+
+		// generate the flux source secret manifest and store it as []byte in the shootResources
+		secManifest, err := sourcesecret.Generate(sourceSecOpts)
+
+		// lastly, also deploy the flux source secret into the projectNamespace in the seed cluster
+		// in order to reuse it, when other shoots are created
+		err = k8syaml.Unmarshal([]byte(secManifest.Content), &fluxRepoSecret)
+
+		_panic(err)
+		fluxRepoSecret.SetNamespace(namespace)
+
+		fmt.Println(fluxRepoSecret.StringData["identity.pub"])
+		clientset.CoreV1().Secrets(namespace).Create(context.TODO(), &fluxRepoSecret, metav1.CreateOptions{})
 	}
-
-	// define some options for the generation of the flux source secret
-	sourceSecOpts := sourcesecret.MakeDefaultOptions()
-	sourceSecOpts.PrivateKeyAlgorithm = "ed25519"
-	sourceSecOpts.SSHHostname = repourl.Hostname()
-	sourceSecOpts.Name = secretName
-
-	// generate the flux source secret manifest and store it as []byte in the shootResources
-	secManifest, err := sourcesecret.Generate(sourceSecOpts)
-
-	// lastly, also deploy the flux source secret into the projectNamespace in the seed cluster
-	// in order to reuse it, when other shoots are created
-	err = k8syaml.Unmarshal([]byte(secManifest.Content), &fluxRepoSecret)
-
-	_panic(err)
-	fluxRepoSecret.SetNamespace(namespace)
-
-	fmt.Println(fluxRepoSecret.StringData["identity.pub"])
-	clientset.CoreV1().Secrets(namespace).Create(context.TODO(), &fluxRepoSecret, metav1.CreateOptions{})
-	//a.clientGardenlet.Create(context.TODO(), &fluxRepoSecret)
 
 	return nil
 }
@@ -324,4 +363,21 @@ func randHex(bytes int) string {
 	byteArr := make([]byte, bytes)
 	rand.Read(byteArr)
 	return hex.EncodeToString(byteArr)
+}
+
+func objectExists(kubeClient client.WithWatch, namespace string, name string) (bool, error) {
+	err := kubeClient.Get(context.TODO(), client.ObjectKey{
+		Namespace: namespace,
+		Name:      name,
+	}, &unstructured.Unstructured{}, &client.GetOptions{})
+
+	if err == nil {
+		return true, nil
+	}
+
+	if apierrors.IsNotFound(err) {
+		return false, nil
+	}
+
+	return false, err
 }
