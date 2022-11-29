@@ -28,7 +28,6 @@ require (
 	k8s.io/apimachinery v0.25.4
 	k8s.io/cli-runtime v0.25.4
 	k8s.io/client-go v0.25.4
-	sigs.k8s.io/yaml v1.3.0
 	sigs.k8s.io/cli-utils v0.34.0
 	sigs.k8s.io/controller-runtime v0.13.1
 	sigs.k8s.io/kustomize/api v0.12.1
@@ -57,8 +56,8 @@ require (
 	github.com/fluxcd/pkg/apis/acl v0.1.0 // indirect
 	github.com/fluxcd/pkg/apis/kustomize v0.7.0 // indirect
 	github.com/fluxcd/pkg/kustomize v0.10.0 // indirect
-	github.com/fluxcd/pkg/untar v0.2.0 // indirect
 	github.com/fluxcd/pkg/ssh v0.7.0 // indirect
+	github.com/fluxcd/pkg/untar v0.2.0 // indirect
 	github.com/fsnotify/fsnotify v1.6.0 // indirect
 	github.com/gliderlabs/ssh v0.3.5 // indirect
 	github.com/go-errors/errors v1.4.2 // indirect
@@ -142,7 +141,6 @@ require (
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/warnings.v0 v0.1.2 // indirect
-	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	k8s.io/component-base v0.25.4 // indirect
 	k8s.io/klog/v2 v2.80.1 // indirect

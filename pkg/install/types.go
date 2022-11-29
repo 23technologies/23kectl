@@ -98,8 +98,8 @@ type domainConfiguration struct {
 type dnsCredentialsAzure struct {
 	TenantId       string `yaml:"tenantID"`
 	SubscriptionId string `yaml:"subscriptionID"`
-	SecretId       string `yaml:"secretID"`
-	SecretValue    string `yaml:"secretValue"`
+	ClientId       string `yaml:"clientID"`
+	ClientSecret   string `yaml:"clientSecret"`
 }
 
 type extensionsConfig map[string]map[string]bool

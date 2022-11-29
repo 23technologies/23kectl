@@ -20,10 +20,10 @@ import (
 	"os"
 	"os/exec"
 	"path"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	k8syaml "sigs.k8s.io/yaml"
 	"strings"
 	"time"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/fluxcd/flux2/pkg/manifestgen"
 	"github.com/fluxcd/flux2/pkg/manifestgen/install"
@@ -38,7 +38,6 @@ import (
 // install ...
 
 const tmpDir = "/tmp"
-const _23KERepo = "git@github.com:23technologies/23ke.git"
 const _23KERepoURI = "ssh://git@github.com/23technologies/23ke.git"
 
 func Install(kubeconfig string, keConfiguration *KeConfig) {
@@ -65,13 +64,15 @@ func Install(kubeconfig string, keConfiguration *KeConfig) {
 	_23KERepoDir := path.Join(tmpDir, "23ke")
 	os.RemoveAll(_23KERepoDir)
 
-	err = updateConfigRepo(keConfiguration)
-	_panic(err)
+	// err = updateConfigRepo(keConfiguration)
+	// _panic(err)
 
 	// Install flux.
 	// We just copied over github.com/fluxcd/flux2/internal/utils to 23kectl/pkg/utils
 	// and use the Apply function as is
 	var kubeconfigArgs = genericclioptions.NewConfigFlags(false)
+	kubeconfigArgs.KubeConfig = &kubeconfig
+
 	var kubeclientOptions = new(runclient.Options)
 	tmpDir, err := manifestgen.MkdirTempAbs("", *kubeconfigArgs.Namespace)
 	_panic(err)
@@ -79,7 +80,7 @@ func Install(kubeconfig string, keConfiguration *KeConfig) {
 	defer os.RemoveAll(tmpDir)
 
 	opts := install.MakeDefaultOptions()
-	manifest, err := install.Generate(opts, "flux-")
+	manifest, err := install.Generate(opts, "")
 	_panic(err)
 
 	_, err = manifest.WriteFile(tmpDir)
@@ -92,15 +93,10 @@ func Install(kubeconfig string, keConfiguration *KeConfig) {
 
 	generate23KEDeployKey(clientset)
 
-	fmt.Printf("Generating 23ke deploy key\n")
-	err = makeCmd("flux", "create", "secret", "git", "23ke-key", "--url="+_23KERepoURI).Run()
-	_panic(err)
-	pressEnterToContinue()
-
-	fmt.Printf("Generating 23ke-config deploy key\n")
-	err = makeCmd("flux", "create", "secret", "git", "23ke-config-key", "--url=ssh://git@github.com/j2l4e/23test").Run()
-	_panic(err)
-	pressEnterToContinue()
+	//fmt.Printf("Generating 23ke-config deploy key\n")
+	//err = makeCmd("flux", "create", "secret", "git", "23ke-config-key", "--url=ssh://git@github.com/j2l4e/23test").Run()
+	//_panic(err)
+	//pressEnterToContinue()
 
 	fmt.Printf("Creating '23ke-config' secret\n")
 	filePath := path.Join(tmpDir, "23ke-config.yaml")
@@ -135,7 +131,7 @@ func Install(kubeconfig string, keConfiguration *KeConfig) {
 			Reference: &sourcecontrollerv1beta2.GitRepositoryRef{
 				Tag: keConfiguration.Version,
 			},
-			URL: "git@github.com:23technologies/23ke.git",
+			URL: _23KERepoURI,
 		},
 		Status: sourcecontrollerv1beta2.GitRepositoryStatus{},
 	}
@@ -161,8 +157,13 @@ func Install(kubeconfig string, keConfiguration *KeConfig) {
 		Status: sourcecontrollerv1beta2.GitRepositoryStatus{},
 	}
 	kubeClient, err := utils.KubeClient(kubeconfigArgs, kubeclientOptions)
-	kubeClient.Create(context.TODO(), &gitrepo23ke, &client.CreateOptions{})
-	kubeClient.Create(context.TODO(), &gitrepo23keconfig, &client.CreateOptions{})
+
+	// todo update if exists
+	err = kubeClient.Create(context.TODO(), &gitrepo23ke, &client.CreateOptions{})
+	_panic(err)
+	// todo update if exists
+	err = kubeClient.Create(context.TODO(), &gitrepo23keconfig, &client.CreateOptions{})
+	_panic(err)
 
 	fmt.Printf("Creating flux git source '23ke-config'\n")
 	url := fmt.Sprintf("ssh://%s", strings.Replace(keConfiguration.GitRepo, ":", "/", 1))
