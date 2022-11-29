@@ -5,6 +5,13 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
+	"net"
+	"os"
+	"os/exec"
+	"path"
+	"strings"
+	"time"
+
 	"github.com/go-git/go-billy/v5/memfs"
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing/object"
@@ -13,19 +20,16 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
-	"net"
-	"os"
-	"os/exec"
-	"path"
-	"strings"
-	"time"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/fluxcd/flux2/pkg/manifestgen"
 	"github.com/fluxcd/flux2/pkg/manifestgen/install"
+	"sigs.k8s.io/yaml"
 
-	"k8s.io/cli-runtime/pkg/genericclioptions"
-	runclient "github.com/fluxcd/pkg/runtime/client"
 	"github.com/23technologies/23kectl/pkg/utils"
+	runclient "github.com/fluxcd/pkg/runtime/client"
+	sourcecontrollerv1beta2 "github.com/fluxcd/source-controller/api/v1beta2"
+	"k8s.io/cli-runtime/pkg/genericclioptions"
 )
 
 // install ...
@@ -68,6 +72,7 @@ func Install(kubeconfig string, keConfiguration *KeConfig) {
 	var kubeclientOptions = new(runclient.Options)
 	tmpDir, err := manifestgen.MkdirTempAbs("", *kubeconfigArgs.Namespace)
 	_panic(err)
+	
 	defer os.RemoveAll(tmpDir)
 	
 	opts := install.MakeDefaultOptions()
@@ -102,12 +107,57 @@ func Install(kubeconfig string, keConfiguration *KeConfig) {
 	err = getLocalTemplate().ExecuteTemplate(file, "23ke-config.yaml", keConfiguration)
 	file.Close()
 	_panic(err)
-	err = makeCmd("kubectl", "apply", "-f", filePath).Run()
-	_panic(err)
 
-	fmt.Printf("Creating flux git source '23ke'\n")
-	err = makeCmd("flux", "create", "source", "git", "23ke", "--secret-ref=23ke-key", "--url="+_23KERepoURI, "--tag=v1.60.0", "--interval=1m").Run()
-	_panic(err)
+	_23keConfigSec := apiv1.Secret{}
+	
+	tmpByte, err := os.ReadFile(file.Name())
+	yaml.Unmarshal(tmpByte, &_23keConfigSec)
+	clientset.CoreV1().Secrets("flux-system").Create(context.TODO(), &_23keConfigSec, metav1.CreateOptions{})
+	
+	gitrepo23ke := sourcecontrollerv1beta2.GitRepository{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "source.toolkit.fluxcd.io/v1beta2",
+			Kind:       "GitRepository",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "23ke",
+			Namespace: "flux-system",
+		},
+		Spec: sourcecontrollerv1beta2.GitRepositorySpec{
+			Interval: metav1.Duration{
+				Duration: time.Minute,
+			},
+			Reference: &sourcecontrollerv1beta2.GitRepositoryRef{
+				Tag: keConfiguration.Version,
+			},
+			URL: "git@github.com:23technologies/23ke.git",
+		},
+		Status: sourcecontrollerv1beta2.GitRepositoryStatus{},
+	}
+
+	gitrepo23keconfig := sourcecontrollerv1beta2.GitRepository{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "source.toolkit.fluxcd.io/v1beta2",
+			Kind:       "GitRepository",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "23ke-config",
+			Namespace: "flux-system",
+		},
+		Spec: sourcecontrollerv1beta2.GitRepositorySpec{
+			Interval: metav1.Duration{
+				Duration: time.Minute,
+			},
+			Reference: &sourcecontrollerv1beta2.GitRepositoryRef{
+				Branch: "main", 
+			},
+			URL: keConfiguration.GitRepo,
+		},
+		Status: sourcecontrollerv1beta2.GitRepositoryStatus{},
+	}
+	kubeClient, err := utils.KubeClient(kubeconfigArgs, kubeclientOptions)
+	kubeClient.Create(context.TODO(), &gitrepo23ke, &client.CreateOptions{})
+	kubeClient.Create(context.TODO(), &gitrepo23keconfig, &client.CreateOptions{})
 
 	fmt.Printf("Creating flux git source '23ke-config'\n")
 	url := fmt.Sprintf("ssh://%s", strings.Replace(keConfiguration.GitRepo, ":", "/", 1))
