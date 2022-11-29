@@ -19,6 +19,13 @@ import (
 	"path"
 	"strings"
 	"time"
+
+	"github.com/fluxcd/flux2/pkg/manifestgen"
+	"github.com/fluxcd/flux2/pkg/manifestgen/install"
+
+	"k8s.io/cli-runtime/pkg/genericclioptions"
+	runclient "github.com/fluxcd/pkg/runtime/client"
+	"github.com/23technologies/23kectl/pkg/utils"
 )
 
 // install ...
@@ -51,21 +58,28 @@ func Install(kubeconfig string, keConfiguration *KeConfig) {
 	_23KERepoDir := path.Join(tmpDir, "23ke")
 	os.RemoveAll(_23KERepoDir)
 
-	var cmd *exec.Cmd
 	err = updateConfigRepo(keConfiguration)
 	_panic(err)
 
-	fmt.Printf("Cloning 23ke repo to %s\n", _23KERepoDir)
-	_, err = git.PlainClone(_23KERepoDir, false, &git.CloneOptions{
-		URL:               _23KERepo,
-		RecurseSubmodules: git.DefaultSubmoduleRecursionDepth,
-	})
+	// Install flux.
+	// We just copied over github.com/fluxcd/flux2/internal/utils to 23kectl/pkg/utils
+	// and use the Apply function as is
+	var kubeconfigArgs = genericclioptions.NewConfigFlags(false)
+	var kubeclientOptions = new(runclient.Options)
+	tmpDir, err := manifestgen.MkdirTempAbs("", *kubeconfigArgs.Namespace)
+	_panic(err)
+	defer os.RemoveAll(tmpDir)
+	
+	opts := install.MakeDefaultOptions()
+	manifest, err := install.Generate(opts, "flux-")
 	_panic(err)
 
-	fmt.Printf("Installing Flux\n")
-	cmd = makeCmd("kubectl", "apply", "-f", path.Join(_23KERepoDir, "flux-system", "gotk-components.yaml"))
-	err = cmd.Run()
+	_, err = manifest.WriteFile(tmpDir)
 	_panic(err)
+
+	_, err = utils.Apply(context.Background(), kubeconfigArgs, kubeclientOptions, tmpDir, path.Join(tmpDir, manifest.Path))
+	_panic(err)
+
 	pressEnterToContinue()
 
 	fmt.Printf("Generating 23ke deploy key\n")
@@ -145,8 +159,8 @@ func updateConfigRepo(keConfig *KeConfig) error {
 		fmt.Printf("Commiting to config repo\n")
 		_, err = worktree.Commit("Config update through 23kectl", &git.CommitOptions{
 			Author: &object.Signature{
-				Name:  "John Doe",
-				Email: "john@doe.org",
+				Name:  "23ke Ctl",
+				Email: "23kectl@23technologies.cloud",
 				When:  time.Now(),
 			},
 		})
