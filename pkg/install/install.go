@@ -23,6 +23,16 @@ import (
 	k8syaml "sigs.k8s.io/yaml"
 	"strings"
 	"time"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	"github.com/fluxcd/flux2/pkg/manifestgen"
+	"github.com/fluxcd/flux2/pkg/manifestgen/install"
+	"sigs.k8s.io/yaml"
+
+	"github.com/23technologies/23kectl/pkg/utils"
+	runclient "github.com/fluxcd/pkg/runtime/client"
+	sourcecontrollerv1beta2 "github.com/fluxcd/source-controller/api/v1beta2"
+	"k8s.io/cli-runtime/pkg/genericclioptions"
 )
 
 // install ...
@@ -55,21 +65,29 @@ func Install(kubeconfig string, keConfiguration *KeConfig) {
 	_23KERepoDir := path.Join(tmpDir, "23ke")
 	os.RemoveAll(_23KERepoDir)
 
-	var cmd *exec.Cmd
 	err = updateConfigRepo(keConfiguration)
 	_panic(err)
 
-	fmt.Printf("Cloning 23ke repo to %s\n", _23KERepoDir)
-	_, err = git.PlainClone(_23KERepoDir, false, &git.CloneOptions{
-		URL:               _23KERepo,
-		RecurseSubmodules: git.DefaultSubmoduleRecursionDepth,
-	})
+	// Install flux.
+	// We just copied over github.com/fluxcd/flux2/internal/utils to 23kectl/pkg/utils
+	// and use the Apply function as is
+	var kubeconfigArgs = genericclioptions.NewConfigFlags(false)
+	var kubeclientOptions = new(runclient.Options)
+	tmpDir, err := manifestgen.MkdirTempAbs("", *kubeconfigArgs.Namespace)
 	_panic(err)
 
-	fmt.Printf("Installing Flux\n")
-	cmd = makeCmd("kubectl", "apply", "-f", path.Join(_23KERepoDir, "flux-system", "gotk-components.yaml"))
-	err = cmd.Run()
+	defer os.RemoveAll(tmpDir)
+
+	opts := install.MakeDefaultOptions()
+	manifest, err := install.Generate(opts, "flux-")
 	_panic(err)
+
+	_, err = manifest.WriteFile(tmpDir)
+	_panic(err)
+
+	_, err = utils.Apply(context.Background(), kubeconfigArgs, kubeclientOptions, tmpDir, path.Join(tmpDir, manifest.Path))
+	_panic(err)
+
 	pressEnterToContinue()
 
 	generate23KEDeployKey(clientset)
@@ -94,12 +112,57 @@ func Install(kubeconfig string, keConfiguration *KeConfig) {
 	err = getLocalTemplate().ExecuteTemplate(file, "23ke-config.yaml", keConfiguration)
 	file.Close()
 	_panic(err)
-	err = makeCmd("kubectl", "apply", "-f", filePath).Run()
-	_panic(err)
 
-	fmt.Printf("Creating flux git source '23ke'\n")
-	err = makeCmd("flux", "create", "source", "git", "23ke", "--secret-ref=23ke-key", "--url="+_23KERepoURI, "--tag=v1.60.0", "--interval=1m").Run()
-	_panic(err)
+	_23keConfigSec := apiv1.Secret{}
+
+	tmpByte, err := os.ReadFile(file.Name())
+	yaml.Unmarshal(tmpByte, &_23keConfigSec)
+	clientset.CoreV1().Secrets("flux-system").Create(context.TODO(), &_23keConfigSec, metav1.CreateOptions{})
+
+	gitrepo23ke := sourcecontrollerv1beta2.GitRepository{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "source.toolkit.fluxcd.io/v1beta2",
+			Kind:       "GitRepository",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "23ke",
+			Namespace: "flux-system",
+		},
+		Spec: sourcecontrollerv1beta2.GitRepositorySpec{
+			Interval: metav1.Duration{
+				Duration: time.Minute,
+			},
+			Reference: &sourcecontrollerv1beta2.GitRepositoryRef{
+				Tag: keConfiguration.Version,
+			},
+			URL: "git@github.com:23technologies/23ke.git",
+		},
+		Status: sourcecontrollerv1beta2.GitRepositoryStatus{},
+	}
+
+	gitrepo23keconfig := sourcecontrollerv1beta2.GitRepository{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "source.toolkit.fluxcd.io/v1beta2",
+			Kind:       "GitRepository",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "23ke-config",
+			Namespace: "flux-system",
+		},
+		Spec: sourcecontrollerv1beta2.GitRepositorySpec{
+			Interval: metav1.Duration{
+				Duration: time.Minute,
+			},
+			Reference: &sourcecontrollerv1beta2.GitRepositoryRef{
+				Branch: "main",
+			},
+			URL: keConfiguration.GitRepo,
+		},
+		Status: sourcecontrollerv1beta2.GitRepositoryStatus{},
+	}
+	kubeClient, err := utils.KubeClient(kubeconfigArgs, kubeclientOptions)
+	kubeClient.Create(context.TODO(), &gitrepo23ke, &client.CreateOptions{})
+	kubeClient.Create(context.TODO(), &gitrepo23keconfig, &client.CreateOptions{})
 
 	fmt.Printf("Creating flux git source '23ke-config'\n")
 	url := fmt.Sprintf("ssh://%s", strings.Replace(keConfiguration.GitRepo, ":", "/", 1))
@@ -185,8 +248,8 @@ func updateConfigRepo(keConfig *KeConfig) error {
 		fmt.Printf("Commiting to config repo\n")
 		_, err = worktree.Commit("Config update through 23kectl", &git.CommitOptions{
 			Author: &object.Signature{
-				Name:  "John Doe",
-				Email: "john@doe.org",
+				Name:  "23ke Ctl",
+				Email: "23kectl@23technologies.cloud",
 				When:  time.Now(),
 			},
 		})
