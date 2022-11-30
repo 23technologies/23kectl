@@ -51,49 +51,11 @@ type acmeConfig struct {
 	Server string `yaml:"server,omitempty"`
 }
 
-type dnsCredentials interface {
-	parseCredentials()
-}
-
 type domainConfiguration struct {
 	Domain      string      `yaml:"domain"`
 	Provider    string      `yaml:"provider"`
 	Credentials interface{} `yaml:"credentials"`
 }
-
-//func (s *domainConfiguration) UnmarshalYAML(n *yaml.Node) error {
-//	type T1 struct {
-//		Domain   string `yaml:"domain"`
-//		Provider string `yaml:"provider"`
-//	}
-//
-//	type T2 struct {
-//		Credentials yaml.Node `yaml:"credentials"`
-//	}
-//
-//
-//
-//	err := n.Decode(s)
-//
-//	switch s.Provider {
-//	case "azure-dns":
-//		s.Credentials = new(dnsCredentialsAzure)
-//	default:
-//		panic("provider unknown")
-//	}
-//
-//	return err
-//}
-
-// func (s *domainConfiguration) MarshalYAML() (interface{}, error) {
-
-// 	type S domainConfiguration
-// 	type T struct {
-// 		*S          `yaml:",inline"`
-// 		Credentials yaml.Node `yaml:"credentials"`
-// 	}
-
-// }
 
 type dnsCredentialsAzure struct {
 	TenantId       string `yaml:"tenantID"`
@@ -102,13 +64,43 @@ type dnsCredentialsAzure struct {
 	ClientSecret   string `yaml:"clientSecret"`
 }
 
+// https://github.com/gardener/external-dns-management/blob/master/examples/20-secret-openstack-credentials.yaml
+type dnsCredentialsOSDesignate struct {
+	ApplicationCredentialID     string `yaml:"OS_APPLICATION_CREDENTIAL_ID"`
+	ApplicationCredentialSecret string `yaml:"OS_APPLICATION_CREDENTIAL_SECRET"`
+	AuthURL                     string `yaml:"OS_AUTH_URL"`
+}
+
+// https://github.com/gardener/external-dns-management/blob/master/examples/20-secret-aws-credentials.yaml
+type dnsCredentialsAWS53 struct {
+	AccessKeyID     string `yaml:"AWS_ACCESS_KEY_ID"`
+	SecretAccessKey string `yaml:"AWS_SECRET_ACCESS_KEY"`
+}
+
 type extensionsConfig map[string]map[string]bool
 
+const (
+	PROVIDER_AWS       = "provider-aws"
+	PROVIDER_AZURE     = "provider-azure"
+	PROVIDER_GCP       = "provider-gcp"
+	PROVIDER_OPENSTACK = "provider-openstack"
+	PROVIDER_ALICLOUD  = "provider-alicloud"
+)
+
+const (
+	DNS_PROVIDER_AWS_ROUTE_53        = "aws-route53"
+	DNS_PROVIDER_AZURE_DNS           = "azure-dns"
+	DNS_PROVIDER_AZURE_PRIVATE_DNS   = "azure-private-dns"
+	DNS_PROVIDER_GOOGLE_CLOUDDNS     = "google-clouddns"
+	DNS_PROVIDER_OPENSTACK_DESIGNATE = "openstack-designate"
+	DNS_PROVIDER_ALICLOUD_DNS        = "alicloud-dns"
+)
+
 var dnsProviderToProvider = map[string]string{
-	"aws-route53":         "provider-aws",
-	"azure-dns":           "provider-azure",
-	"azure-private-dns":   "provider-azure",
-	"google-clouddns":     "provider-gcp",
-	"openstack-designate": "provider-openstack",
-	"alicloud-dns":        "provider-alicloud",
+	DNS_PROVIDER_AWS_ROUTE_53:        PROVIDER_AWS,
+	DNS_PROVIDER_AZURE_DNS:           PROVIDER_AZURE,
+	DNS_PROVIDER_AZURE_PRIVATE_DNS:   PROVIDER_AZURE,
+	DNS_PROVIDER_GOOGLE_CLOUDDNS:     PROVIDER_GCP,
+	DNS_PROVIDER_OPENSTACK_DESIGNATE: PROVIDER_OPENSTACK,
+	DNS_PROVIDER_ALICLOUD_DNS:        PROVIDER_ALICLOUD,
 }

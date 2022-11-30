@@ -98,7 +98,7 @@ func queryDomainConfig() domainConfiguration {
 
 	prompt = &survey.Select{
 		Message: "Define your DNS provider",
-		Options: []string{"azure-dns", "openstack-designate", "aws-route53"},
+		Options: []string{DNS_PROVIDER_AZURE_DNS, DNS_PROVIDER_OPENSTACK_DESIGNATE, DNS_PROVIDER_AWS_ROUTE_53},
 	}
 	err = survey.AskOne(prompt, &provider, withValidator("required"))
 	handleErr(err)
@@ -128,6 +128,52 @@ func (d *dnsCredentialsAzure) parseCredentials() {
 			Name:     "SecretValue",
 			Prompt:   &survey.Input{Message: "Azure subscription ID?"},
 			Validate: makeValidator("required"),
+		},
+	}
+
+	err := survey.Ask(qs, d)
+	handleErr(err)
+}
+
+func (d *dnsCredentialsOSDesignate) parseCredentials() {
+	qs := []*survey.Question{
+		{
+			Name:      "ApplicationCredentialID",
+			Prompt:    &survey.Input{Message: "Application Credential ID?"},
+			Validate:  makeValidator("required"),
+			Transform: survey.TransformString(base64String),
+		},
+		{
+			Name:      "ApplicationCredentialSecret",
+			Prompt:    &survey.Input{Message: "Application Credential Secret?"},
+			Validate:  makeValidator("required"),
+			Transform: survey.TransformString(base64String),
+		},
+		{
+			Name:      "AuthURL",
+			Prompt:    &survey.Input{Message: "AuthURL?"},
+			Validate:  makeValidator("required,url"),
+			Transform: survey.TransformString(base64String),
+		},
+	}
+
+	err := survey.Ask(qs, d)
+	handleErr(err)
+}
+
+func (d *dnsCredentialsAWS53) parseCredentials() {
+	qs := []*survey.Question{
+		{
+			Name:      "AccessKeyID",
+			Prompt:    &survey.Input{Message: "Access Key ID?"},
+			Validate:  makeValidator("required"),
+			Transform: survey.TransformString(base64String),
+		},
+		{
+			Name:      "SecretAccessKey",
+			Prompt:    &survey.Input{Message: "Secret Access Key?"},
+			Validate:  makeValidator("required"),
+			Transform: survey.TransformString(base64String),
 		},
 	}
 

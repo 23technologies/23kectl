@@ -22,7 +22,27 @@ func newDomainConfigAzure(domain string) domainConfiguration {
 	dnsCredentials.parseCredentials()
 	return domainConfiguration{
 		Domain:      domain,
-		Provider:    "azure-dns",
+		Provider:    DNS_PROVIDER_AZURE_DNS,
+		Credentials: &dnsCredentials,
+	}
+}
+
+func newDomainOSDesignate(domain string) domainConfiguration {
+	var dnsCredentials dnsCredentialsOSDesignate
+	dnsCredentials.parseCredentials()
+	return domainConfiguration{
+		Domain:      domain,
+		Provider:    DNS_PROVIDER_OPENSTACK_DESIGNATE,
+		Credentials: &dnsCredentials,
+	}
+}
+
+func newDomainAWS53(domain string) domainConfiguration {
+	var dnsCredentials dnsCredentialsAWS53
+	dnsCredentials.parseCredentials()
+	return domainConfiguration{
+		Domain:      domain,
+		Provider:    DNS_PROVIDER_AWS_ROUTE_53,
 		Credentials: &dnsCredentials,
 	}
 }
@@ -40,8 +60,12 @@ func (d domainConfiguration) marshal() string {
 func createDomainConfiguration(domain string, dnsProvider string) (domainConfiguration, error) {
 
 	switch dnsProvider {
-	case "azure-dns":
+	case DNS_PROVIDER_AZURE_DNS:
 		return newDomainConfigAzure(domain), nil
+	case DNS_PROVIDER_OPENSTACK_DESIGNATE:
+		return newDomainOSDesignate(domain), nil
+	case DNS_PROVIDER_AWS_ROUTE_53:
+		return newDomainAWS53(domain), nil
 	}
 
 	return domainConfiguration{}, fmt.Errorf("input invalid for domain configuration")

@@ -125,7 +125,6 @@ The key needs write access and the repository can remain empty.`)
 
 	err = updateConfigRepo(keConfiguration, *publicKeys)
 	_panic(err)
-
 }
 
 func generate23KEDeployKey(clientset *kubernetes.Clientset, secretName string, repoUrl string) error {
