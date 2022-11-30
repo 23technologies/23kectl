@@ -23,8 +23,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/tools/clientcmd"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	k8syaml "sigs.k8s.io/yaml"
 
@@ -48,20 +46,13 @@ const _23KERepoURI = "ssh://git@github.com/23technologies/23ke.git"
 
 func Install(kubeconfig string, keConfiguration *KeConfig) {
 
-	config, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
-	_panic(err)
-
-	// create the clientset
-	clientset, err := kubernetes.NewForConfig(config)
-	_panic(err)
-
 	var kubeconfigArgs = genericclioptions.NewConfigFlags(false)
 	kubeconfigArgs.KubeConfig = &kubeconfig
 
 	var kubeclientOptions = new(runclient.Options)
 	kubeClient, err := utils.KubeClient(kubeconfigArgs, kubeclientOptions)
 
-	completeKeConfig(keConfiguration, clientset, kubeClient)
+	completeKeConfig(keConfiguration, kubeClient)
 
 	// Install flux.
 	// We just copied over github.com/fluxcd/flux2/internal/utils to 23kectl/pkg/utils
@@ -87,14 +78,14 @@ func Install(kubeconfig string, keConfiguration *KeConfig) {
 	fmt.Println(`This key will need to be added by 23T to the 23KE repository.
 Please contact the 23T administrators and ask them to add the key.
 Depending on your relationship with 23T, 23T will come up with a pricing model for you.`)
-	err = generate23KEDeployKey(clientset, "23ke-key", _23KERepoURI)
+	err = generate23KEDeployKey(kubeClient, "23ke-key", _23KERepoURI)
 	_panic(err)
 	pressEnterToContinue()
 
 	fmt.Println("Generating 23ke-config deploy key")
 	fmt.Println(`You will need to add this key to your git remote git repository.
 The key needs write access and the repository can remain empty.`)
-	err = generate23KEDeployKey(clientset, "23ke-config-key", keConfiguration.GitRepo)
+	err = generate23KEDeployKey(kubeClient, "23ke-config-key", keConfiguration.GitRepo)
 	_panic(err)
 	pressEnterToContinue()
 
@@ -113,7 +104,7 @@ The key needs write access and the repository can remain empty.`)
 	_23keConfigSec := apiv1.Secret{}
 	tmpByte, err := os.ReadFile(file.Name())
 	yaml.Unmarshal(tmpByte, &_23keConfigSec)
-	clientset.CoreV1().Secrets("flux-system").Create(context.TODO(), &_23keConfigSec, metav1.CreateOptions{})
+	kubeClient.Create(context.Background(), &_23keConfigSec)
 
 	// create the gitrepository resources in the cluster
 	createGitRepositories(kubeClient, *keConfiguration)
@@ -122,7 +113,11 @@ The key needs write access and the repository can remain empty.`)
 	createKustomizations(kubeClient)
 
 	// finally update the config repository with the current configuration
-	sec, err := clientset.CoreV1().Secrets("flux-system").Get(context.TODO(), "23ke-config-key", metav1.GetOptions{})
+	sec := corev1.Secret{}
+	kubeClient.Get(context.Background(), client.ObjectKey{
+		Namespace: "flux-system",
+		Name:      "23ke-config-key",
+	}, &sec)
 	publicKeys, err := ssh.NewPublicKeys("git", sec.Data["identity"], "")
 
 	err = updateConfigRepo(keConfiguration, *publicKeys)
@@ -130,12 +125,16 @@ The key needs write access and the repository can remain empty.`)
 
 }
 
-func generate23KEDeployKey(clientset *kubernetes.Clientset, secretName string, repoUrl string) error {
+func generate23KEDeployKey(kubeClient client.WithWatch, secretName string, repoUrl string) error {
 	namespace := "flux-system"
 
 	// todo check if exists
+	sec := corev1.Secret{}
 	exists := false
-	sec, err := clientset.CoreV1().Secrets(namespace).Get(context.TODO(), secretName, metav1.GetOptions{})
+	err := kubeClient.Get(context.Background(), client.ObjectKey{
+		Namespace: namespace,
+		Name:      secretName,
+	}, &sec)
 	if err == nil {
 		exists = true
 	}
@@ -170,7 +169,7 @@ func generate23KEDeployKey(clientset *kubernetes.Clientset, secretName string, r
 		fluxRepoSecret.SetNamespace(namespace)
 
 		fmt.Println(fluxRepoSecret.StringData["identity.pub"])
-		clientset.CoreV1().Secrets(namespace).Create(context.TODO(), &fluxRepoSecret, metav1.CreateOptions{})
+		kubeClient.Create(context.Background(), &fluxRepoSecret)
 	}
 
 	return nil
@@ -324,7 +323,7 @@ func updateConfigRepo(keConfig *KeConfig, publicKeys ssh.PublicKeys) error {
 }
 
 // completeKeConfig ...
-func completeKeConfig(config *KeConfig, clientset *kubernetes.Clientset, kubeClient client.WithWatch) {
+func completeKeConfig(config *KeConfig, kubeClient client.WithWatch) {
 	if strings.TrimSpace(config.Dashboard.SessionSecret) == "" {
 		config.Dashboard.SessionSecret = randHex(20)
 	}
@@ -375,13 +374,14 @@ func completeKeConfig(config *KeConfig, clientset *kubernetes.Clientset, kubeCli
 		dummySvc := &apiv1.Service{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "dummy",
+				Namespace: "default",
 			},
 			Spec: apiv1.ServiceSpec{
 				Ports:     []apiv1.ServicePort{{Name: "port", Port: 443}},
 				ClusterIP: "1.1.1.1",
 			},
 		}
-		_, dummyErr := clientset.CoreV1().Services("default").Create(context.Background(), dummySvc, metav1.CreateOptions{})
+		dummyErr := kubeClient.Create(context.Background(), dummySvc)
 		config.Gardenlet.SeedServiceCidr = strings.SplitAfter(dummyErr.Error(), "The range of valid IPs is ")[1]
 	}
 
