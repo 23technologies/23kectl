@@ -17,25 +17,25 @@ import (
 	"github.com/go-git/go-billy/v5/memfs"
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing/object"
-	"github.com/go-git/go-git/v5/storage/memory"
 	"github.com/go-git/go-git/v5/plumbing/transport/ssh"
+	"github.com/go-git/go-git/v5/storage/memory"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	k8syaml "sigs.k8s.io/yaml"
 
 	"github.com/fluxcd/flux2/pkg/manifestgen"
-	"github.com/fluxcd/flux2/pkg/manifestgen/sourcesecret"
 	"github.com/fluxcd/flux2/pkg/manifestgen/install"
+	"github.com/fluxcd/flux2/pkg/manifestgen/sourcesecret"
 	"github.com/fluxcd/pkg/apis/meta"
 
 	kustomizecontrollerv1beta2 "github.com/fluxcd/kustomize-controller/api/v1beta2"
-	sourcecontrollerv1beta2 "github.com/fluxcd/source-controller/api/v1beta2"
 	runclient "github.com/fluxcd/pkg/runtime/client"
+	sourcecontrollerv1beta2 "github.com/fluxcd/source-controller/api/v1beta2"
 )
 
 // install ...
@@ -255,7 +255,7 @@ func createKustomizations(kubeClient client.WithWatch) {
 func updateConfigRepo(keConfig *KeConfig, publicKeys ssh.PublicKeys) error {
 	var err error
 	workTreeFs := memfs.New()
-	fmt.Printf("Cloning config repo to memory")
+	fmt.Printf("Cloning config repo to memory\n")
 	repository, err := git.Clone(memory.NewStorage(), workTreeFs, &git.CloneOptions{
 		Auth: &publicKeys,
 		URL:  keConfig.GitRepo,
@@ -268,7 +268,7 @@ func updateConfigRepo(keConfig *KeConfig, publicKeys ssh.PublicKeys) error {
 	_, err = worktree.Remove(".")
 	// _panic(err)
 
-	fmt.Printf("Writing new config")
+	fmt.Printf("Writing new config\n")
 	err = writeConfigDir(workTreeFs, ".", keConfig)
 	// _panic(err)
 
@@ -279,7 +279,7 @@ func updateConfigRepo(keConfig *KeConfig, publicKeys ssh.PublicKeys) error {
 	// _panic(err)
 
 	if status.IsClean() {
-		fmt.Printf("Git reports no changes to config repo")
+		fmt.Printf("Git reports no changes to config repo\n")
 	} else {
 		fmt.Printf("Commiting to config repo\n")
 		_, err = worktree.Commit("Config update through 23kectl", &git.CommitOptions{
@@ -352,7 +352,7 @@ func completeKeConfig(config *KeConfig, kubeClient client.WithWatch) {
 	if strings.TrimSpace(config.Gardenlet.SeedServiceCidr) == "" {
 		dummySvc := &corev1.Service{
 			ObjectMeta: metav1.ObjectMeta{
-				Name: "dummy",
+				Name:      "dummy",
 				Namespace: "default",
 			},
 			Spec: corev1.ServiceSpec{
@@ -393,7 +393,7 @@ func randHex(bytes int) string {
 }
 
 // installFlux ...
-func installFlux(kubeClient client.WithWatch, kubeconfigArgs *genericclioptions.ConfigFlags, kubeclientOptions *runclient.Options)  {
+func installFlux(kubeClient client.WithWatch, kubeconfigArgs *genericclioptions.ConfigFlags, kubeclientOptions *runclient.Options) {
 	// Install flux.
 	// We just copied over github.com/fluxcd/flux2/internal/utils to 23kectl/pkg/utils
 	// and use the Apply function as is
