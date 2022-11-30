@@ -22,13 +22,29 @@ func queryConfig(config *KeConfig) {
 	var err error
 	var prompt survey.Prompt
 
+	if config.Version == "" {
+		prompt = &survey.Input{
+			Message: "Which version of 23ke would you like to install (should match a git tag)?",
+		}
+		err = survey.AskOne(prompt, &config.Version, withValidator("required"))
+		handleErr(err)
+	}
+
 	if config.EmailAddress == "" {
 		prompt = &survey.Input{
 			Message: "Please enter your email address",
 		}
 		err = survey.AskOne(prompt, &config.EmailAddress, withValidator("required,email"))
 		handleErr(err)
-		config.Issuer.Acme.Email = config.EmailAddress
+	}
+
+	if config.Issuer.Acme.Email == "" {
+		prompt = &survey.Input{
+			Message: "Please enter your email address for acme certificate generation",
+			Default: config.EmailAddress,
+		}
+		err = survey.AskOne(prompt, &config.Issuer.Acme.Email, withValidator("required,email"))
+		handleErr(err)
 	}
 
 	if config.AdminPassword == "" {
@@ -47,9 +63,9 @@ func queryConfig(config *KeConfig) {
 
 	if config.GitRepo == "" {
 		prompt = &survey.Input{
-			Message: "Please enter your git repository remote, e.g. git@github.com:User/Repo.git",
+			Message: "Please enter your git repository remote, e.g. ssh://git@github.com/User/Repo.git",
 		}
-		err = survey.AskOne(prompt, &config.GitRepo, withValidator("required"))
+		err = survey.AskOne(prompt, &config.GitRepo, withValidator("required,url"))
 		handleErr(err)
 	}
 
@@ -110,24 +126,28 @@ func queryDomainConfig() domainConfiguration {
 func (d *dnsCredentialsAzure) parseCredentials() {
 	qs := []*survey.Question{
 		{
-			Name:     "TenantId",
-			Prompt:   &survey.Input{Message: "Azure tenant ID?"},
-			Validate: makeValidator("required"),
+			Name:      "TenantId",
+			Prompt:    &survey.Input{Message: "Azure tenant ID?"},
+			Validate:  makeValidator("required"),
+			Transform: survey.TransformString(base64String),
 		},
 		{
-			Name:     "SubscriptionId",
-			Prompt:   &survey.Input{Message: "Azure subscription ID?"},
-			Validate: makeValidator("required"),
+			Name:      "SubscriptionId",
+			Prompt:    &survey.Input{Message: "Azure subscription ID?"},
+			Validate:  makeValidator("required"),
+			Transform: survey.TransformString(base64String),
 		},
 		{
-			Name:     "SecretId",
-			Prompt:   &survey.Input{Message: "Azure secret ID?"},
-			Validate: makeValidator("required"),
+			Name:      "ClientID",
+			Prompt:    &survey.Input{Message: "Azure client ID?"},
+			Validate:  makeValidator("required"),
+			Transform: survey.TransformString(base64String),
 		},
 		{
-			Name:     "SecretValue",
-			Prompt:   &survey.Input{Message: "Azure subscription ID?"},
-			Validate: makeValidator("required"),
+			Name:      "ClientSecret",
+			Prompt:    &survey.Input{Message: "Azure client secret?"},
+			Validate:  makeValidator("required"),
+			Transform: survey.TransformString(base64String),
 		},
 	}
 
