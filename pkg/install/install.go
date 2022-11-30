@@ -12,93 +12,66 @@ import (
 	"strings"
 	"time"
 
-	"github.com/fluxcd/flux2/pkg/manifestgen/sourcesecret"
+	"github.com/23technologies/23kectl/pkg/utils"
+
 	"github.com/go-git/go-billy/v5/memfs"
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing/object"
 	"github.com/go-git/go-git/v5/storage/memory"
-	apiv1 "k8s.io/api/core/v1"
+	"github.com/go-git/go-git/v5/plumbing/transport/ssh"
+
 	corev1 "k8s.io/api/core/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"k8s.io/cli-runtime/pkg/genericclioptions"
 	k8syaml "sigs.k8s.io/yaml"
 
 	"github.com/fluxcd/flux2/pkg/manifestgen"
+	"github.com/fluxcd/flux2/pkg/manifestgen/sourcesecret"
 	"github.com/fluxcd/flux2/pkg/manifestgen/install"
 	"github.com/fluxcd/pkg/apis/meta"
-	"sigs.k8s.io/yaml"
 
-	"github.com/23technologies/23kectl/pkg/utils"
 	kustomizecontrollerv1beta2 "github.com/fluxcd/kustomize-controller/api/v1beta2"
-	runclient "github.com/fluxcd/pkg/runtime/client"
 	sourcecontrollerv1beta2 "github.com/fluxcd/source-controller/api/v1beta2"
-	"github.com/go-git/go-git/v5/plumbing/transport/ssh"
-	"k8s.io/cli-runtime/pkg/genericclioptions"
+	runclient "github.com/fluxcd/pkg/runtime/client"
 )
 
 // install ...
-
-const tmpDir = "/tmp"
 const _23KERepoURI = "ssh://git@github.com/23technologies/23ke.git"
 
 func Install(kubeconfig string, keConfiguration *KeConfig) {
 
-	config, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
-	_panic(err)
-
-	// create the clientset
-	clientset, err := kubernetes.NewForConfig(config)
-	_panic(err)
-
-	completeKeConfig(keConfiguration, clientset)
-
-	// Install flux.
-	// We just copied over github.com/fluxcd/flux2/internal/utils to 23kectl/pkg/utils
-	// and use the Apply function as is
 	var kubeconfigArgs = genericclioptions.NewConfigFlags(false)
 	kubeconfigArgs.KubeConfig = &kubeconfig
 
 	var kubeclientOptions = new(runclient.Options)
 	kubeClient, err := utils.KubeClient(kubeconfigArgs, kubeclientOptions)
 
-	tmpDir, err := manifestgen.MkdirTempAbs("", *kubeconfigArgs.Namespace)
-	_panic(err)
+	completeKeConfig(keConfiguration, kubeClient)
 
-	defer os.RemoveAll(tmpDir)
-
-	opts := install.MakeDefaultOptions()
-	manifest, err := install.Generate(opts, "")
-	_panic(err)
-
-	_, err = manifest.WriteFile(tmpDir)
-	_panic(err)
-
-	_, err = utils.Apply(context.Background(), kubeconfigArgs, kubeclientOptions, tmpDir, path.Join(tmpDir, manifest.Path))
-	_panic(err)
+	installFlux(kubeClient, kubeconfigArgs, kubeclientOptions)
 
 	// Generate the needed deploy keys
 	fmt.Println("Generating 23ke deploy key")
 	fmt.Println(`This key will need to be added by 23T to the 23KE repository.
 Please contact the 23T administrators and ask them to add the key.
 Depending on your relationship with 23T, 23T will come up with a pricing model for you.`)
-	err = generate23KEDeployKey(clientset, "23ke-key", _23KERepoURI)
+	err = generate23KEDeployKey(kubeClient, "23ke-key", _23KERepoURI)
 	_panic(err)
 	pressEnterToContinue()
 
 	fmt.Println("Generating 23ke-config deploy key")
 	fmt.Println(`You will need to add this key to your git remote git repository.
 The key needs write access and the repository can remain empty.`)
-	err = generate23KEDeployKey(clientset, "23ke-config-key", keConfiguration.GitRepo)
+	err = generate23KEDeployKey(kubeClient, "23ke-config-key", keConfiguration.GitRepo)
 	_panic(err)
 	pressEnterToContinue()
 
 	// Create the 23ke-config secret
 	fmt.Println("Creating '23ke-config' secret")
-	filePath := path.Join(tmpDir, "23ke-config.yaml")
+	filePath := path.Join("/tmp", "23ke-config.yaml")
 	file, err := os.OpenFile(filePath, os.O_WRONLY|os.O_CREATE, 0600)
 	if err != nil {
 		file.Close()
@@ -108,10 +81,10 @@ The key needs write access and the repository can remain empty.`)
 	file.Close()
 	_panic(err)
 
-	_23keConfigSec := apiv1.Secret{}
+	_23keConfigSec := corev1.Secret{}
 	tmpByte, err := os.ReadFile(file.Name())
-	yaml.Unmarshal(tmpByte, &_23keConfigSec)
-	clientset.CoreV1().Secrets("flux-system").Create(context.TODO(), &_23keConfigSec, metav1.CreateOptions{})
+	k8syaml.Unmarshal(tmpByte, &_23keConfigSec)
+	kubeClient.Create(context.Background(), &_23keConfigSec)
 
 	// create the gitrepository resources in the cluster
 	createGitRepositories(kubeClient, *keConfiguration)
@@ -120,19 +93,27 @@ The key needs write access and the repository can remain empty.`)
 	createKustomizations(kubeClient)
 
 	// finally update the config repository with the current configuration
-	sec, err := clientset.CoreV1().Secrets("flux-system").Get(context.TODO(), "23ke-config-key", metav1.GetOptions{})
+	sec := corev1.Secret{}
+	kubeClient.Get(context.Background(), client.ObjectKey{
+		Namespace: "flux-system",
+		Name:      "23ke-config-key",
+	}, &sec)
 	publicKeys, err := ssh.NewPublicKeys("git", sec.Data["identity"], "")
 
 	err = updateConfigRepo(keConfiguration, *publicKeys)
 	_panic(err)
 }
 
-func generate23KEDeployKey(clientset *kubernetes.Clientset, secretName string, repoUrl string) error {
+func generate23KEDeployKey(kubeClient client.WithWatch, secretName string, repoUrl string) error {
 	namespace := "flux-system"
 
 	// todo check if exists
+	sec := corev1.Secret{}
 	exists := false
-	sec, err := clientset.CoreV1().Secrets(namespace).Get(context.TODO(), secretName, metav1.GetOptions{})
+	err := kubeClient.Get(context.Background(), client.ObjectKey{
+		Namespace: namespace,
+		Name:      secretName,
+	}, &sec)
 	if err == nil {
 		exists = true
 	}
@@ -167,7 +148,7 @@ func generate23KEDeployKey(clientset *kubernetes.Clientset, secretName string, r
 		fluxRepoSecret.SetNamespace(namespace)
 
 		fmt.Println(fluxRepoSecret.StringData["identity.pub"])
-		clientset.CoreV1().Secrets(namespace).Create(context.TODO(), &fluxRepoSecret, metav1.CreateOptions{})
+		kubeClient.Create(context.Background(), &fluxRepoSecret)
 	}
 
 	return nil
@@ -321,7 +302,7 @@ func updateConfigRepo(keConfig *KeConfig, publicKeys ssh.PublicKeys) error {
 }
 
 // completeKeConfig ...
-func completeKeConfig(config *KeConfig, clientset *kubernetes.Clientset) {
+func completeKeConfig(config *KeConfig, kubeClient client.WithWatch) {
 	if strings.TrimSpace(config.Dashboard.SessionSecret) == "" {
 		config.Dashboard.SessionSecret = randHex(20)
 	}
@@ -336,35 +317,64 @@ func completeKeConfig(config *KeConfig, clientset *kubernetes.Clientset) {
 	}
 
 	if strings.TrimSpace(config.Gardenlet.SeedPodCidr) == "" {
-		// https://github.com/gardener/gardener/blob/e31175861175410185b492b861cc90ba5491a8ee/cmd/gardenlet/app/bootstrappers/seed_config.go#L73
-		// todo find proper way to find PodCIDR
-		nodes, err := clientset.CoreV1().Nodes().List(context.TODO(), metav1.ListOptions{})
-		_panic(err)
-		config.Gardenlet.SeedPodCidr = nodes.Items[0].Spec.PodCIDR
+		// We assume that either calico or cilium are used as CNI
+		// Therefore, we search for an ippool with name "default-ipv4-ippool" for the calico case.
+		// In the cilium case, we search for the configmap "cilium-config" in the kube-system namespace
+		// If none of these are found, we throw an error.
+		ipPool := unstructured.Unstructured{}
+		gvk := schema.GroupVersionKind{
+			Group:   "crd.projectcalico.org",
+			Version: "v1",
+			Kind:    "ippool",
+		}
+		ipPool.SetGroupVersionKind(gvk)
+		err := kubeClient.Get(context.Background(), client.ObjectKey{
+			Namespace: "",
+			Name:      "default-ipv4-ippool",
+		}, &ipPool)
+		if err == nil {
+			config.Gardenlet.SeedPodCidr = ipPool.Object["spec"].(map[string]interface{})["cidr"].(string)
+		} else {
+
+			ciliumConfig := corev1.ConfigMap{}
+			err = kubeClient.Get(context.Background(), client.ObjectKey{
+				Namespace: "kube-system",
+				Name:      "cilium-config",
+			}, &ciliumConfig)
+			if err != nil {
+				fmt.Println("I could not find the cilium-config configmap in your kube-systemnamespace")
+				panic(err)
+			}
+			config.Gardenlet.SeedPodCidr = ciliumConfig.Data["cluster-pool-ipv4-cidr"]
+		}
 	}
 
-	dummySvc := &apiv1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "dummy",
-		},
-		Spec: apiv1.ServiceSpec{
-			Ports:     []apiv1.ServicePort{{Name: "port", Port: 443}},
-			ClusterIP: "1.1.1.1",
-		},
+	if strings.TrimSpace(config.Gardenlet.SeedServiceCidr) == "" {
+		dummySvc := &corev1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "dummy",
+				Namespace: "default",
+			},
+			Spec: corev1.ServiceSpec{
+				Ports:     []corev1.ServicePort{{Name: "port", Port: 443}},
+				ClusterIP: "1.1.1.1",
+			},
+		}
+		dummyErr := kubeClient.Create(context.Background(), dummySvc)
+		config.Gardenlet.SeedServiceCidr = strings.SplitAfter(dummyErr.Error(), "The range of valid IPs is ")[1]
 	}
-	_, dummyErr := clientset.CoreV1().Services("default").Create(context.Background(), dummySvc, metav1.CreateOptions{})
 
-	config.Gardenlet.SeedServiceCidr = strings.SplitAfter(dummyErr.Error(), "The range of valid IPs is ")[1]
+	if strings.TrimSpace(config.Gardener.ClusterIP) == "" {
+		clusterIp, ipnet, _ := net.ParseCIDR(config.Gardenlet.SeedServiceCidr)
 
-	clusterIp, ipnet, _ := net.ParseCIDR(config.Gardenlet.SeedServiceCidr)
+		clusterIp[len(clusterIp)-2] += 1
+		clusterIp[len(clusterIp)-1] += 1
 
-	clusterIp[len(clusterIp)-2] += 1
-	clusterIp[len(clusterIp)-1] += 1
-
-	if !ipnet.Contains(clusterIp) {
-		panic("Your cluster ip is out of the service IP range")
+		if !ipnet.Contains(clusterIp) {
+			panic("Your cluster ip is out of the service IP range")
+		}
+		config.Gardener.ClusterIP = clusterIp.String()
 	}
-	config.Gardener.ClusterIP = clusterIp.String()
 
 	// query for all config options we don't know
 	queryConfig(config)
@@ -382,20 +392,23 @@ func randHex(bytes int) string {
 	return hex.EncodeToString(byteArr)
 }
 
-func objectExists(kubeClient client.WithWatch, namespace string, name string) (bool, error) {
-	err := kubeClient.Get(context.TODO(), client.ObjectKey{
-		Namespace: namespace,
-		Name:      name,
-	}, &unstructured.Unstructured{}, &client.GetOptions{})
+// installFlux ...
+func installFlux(kubeClient client.WithWatch, kubeconfigArgs *genericclioptions.ConfigFlags, kubeclientOptions *runclient.Options)  {
+	// Install flux.
+	// We just copied over github.com/fluxcd/flux2/internal/utils to 23kectl/pkg/utils
+	// and use the Apply function as is
+	tmpDir, err := manifestgen.MkdirTempAbs("", *kubeconfigArgs.Namespace)
+	_panic(err)
 
-	if err == nil {
-		return true, nil
-	}
-	return false, nil
+	defer os.RemoveAll(tmpDir)
 
-	if apierrors.IsNotFound(err) {
-		return false, nil
-	}
+	opts := install.MakeDefaultOptions()
+	manifest, err := install.Generate(opts, "")
+	_panic(err)
 
-	return false, err
+	_, err = manifest.WriteFile(tmpDir)
+	_panic(err)
+
+	_, err = utils.Apply(context.Background(), kubeconfigArgs, kubeclientOptions, tmpDir, path.Join(tmpDir, manifest.Path))
+	_panic(err)
 }

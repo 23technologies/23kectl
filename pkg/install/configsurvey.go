@@ -76,8 +76,8 @@ func queryConfig(config *KeConfig) {
 		}
 		err = survey.AskOne(prompt, &config.BaseCluster.NodeCidr, withValidator("required,cidr"))
 		handleErr(err)
-		config.Gardenlet.SeedNodeCidr = config.BaseCluster.NodeCidr
 	}
+	config.Gardenlet.SeedNodeCidr = config.BaseCluster.NodeCidr
 
 	if config.DomainConfig.Domain == "" || config.DomainConfig.Provider == "" {
 		config.DomainConfig = queryDomainConfig()
