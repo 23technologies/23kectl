@@ -19,7 +19,6 @@ import (
 	"github.com/go-git/go-git/v5/storage/memory"
 	apiv1 "k8s.io/api/core/v1"
 	corev1 "k8s.io/api/core/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -52,24 +51,7 @@ func Install(kubeconfig string, keConfiguration *KeConfig) {
 
 	completeKeConfig(keConfiguration, kubeClient)
 
-	// Install flux.
-	// We just copied over github.com/fluxcd/flux2/internal/utils to 23kectl/pkg/utils
-	// and use the Apply function as is
-
-	tmpDir, err := manifestgen.MkdirTempAbs("", *kubeconfigArgs.Namespace)
-	_panic(err)
-
-	defer os.RemoveAll(tmpDir)
-
-	opts := install.MakeDefaultOptions()
-	manifest, err := install.Generate(opts, "")
-	_panic(err)
-
-	_, err = manifest.WriteFile(tmpDir)
-	_panic(err)
-
-	_, err = utils.Apply(context.Background(), kubeconfigArgs, kubeclientOptions, tmpDir, path.Join(tmpDir, manifest.Path))
-	_panic(err)
+	installFlux(kubeClient, kubeconfigArgs, kubeclientOptions)
 
 	// Generate the needed deploy keys
 	fmt.Println("Generating 23ke deploy key")
@@ -89,7 +71,7 @@ The key needs write access and the repository can remain empty.`)
 
 	// Create the 23ke-config secret
 	fmt.Println("Creating '23ke-config' secret")
-	filePath := path.Join(tmpDir, "23ke-config.yaml")
+	filePath := path.Join("/tmp", "23ke-config.yaml")
 	file, err := os.OpenFile(filePath, os.O_WRONLY|os.O_CREATE, 0600)
 	if err != nil {
 		file.Close()
@@ -411,20 +393,23 @@ func randHex(bytes int) string {
 	return hex.EncodeToString(byteArr)
 }
 
-func objectExists(kubeClient client.WithWatch, namespace string, name string) (bool, error) {
-	err := kubeClient.Get(context.TODO(), client.ObjectKey{
-		Namespace: namespace,
-		Name:      name,
-	}, &unstructured.Unstructured{}, &client.GetOptions{})
+// installFlux ...
+func installFlux(kubeClient client.WithWatch, kubeconfigArgs *genericclioptions.ConfigFlags, kubeclientOptions *runclient.Options)  {
+	// Install flux.
+	// We just copied over github.com/fluxcd/flux2/internal/utils to 23kectl/pkg/utils
+	// and use the Apply function as is
+	tmpDir, err := manifestgen.MkdirTempAbs("", *kubeconfigArgs.Namespace)
+	_panic(err)
 
-	if err == nil {
-		return true, nil
-	}
-	return false, nil
+	defer os.RemoveAll(tmpDir)
 
-	if apierrors.IsNotFound(err) {
-		return false, nil
-	}
+	opts := install.MakeDefaultOptions()
+	manifest, err := install.Generate(opts, "")
+	_panic(err)
 
-	return false, err
+	_, err = manifest.WriteFile(tmpDir)
+	_panic(err)
+
+	_, err = utils.Apply(context.Background(), kubeconfigArgs, kubeclientOptions, tmpDir, path.Join(tmpDir, manifest.Path))
+	_panic(err)
 }
