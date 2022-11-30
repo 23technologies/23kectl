@@ -22,6 +22,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -54,16 +55,17 @@ func Install(kubeconfig string, keConfiguration *KeConfig) {
 	clientset, err := kubernetes.NewForConfig(config)
 	_panic(err)
 
-	completeKeConfig(keConfiguration, clientset)
-
-	// Install flux.
-	// We just copied over github.com/fluxcd/flux2/internal/utils to 23kectl/pkg/utils
-	// and use the Apply function as is
 	var kubeconfigArgs = genericclioptions.NewConfigFlags(false)
 	kubeconfigArgs.KubeConfig = &kubeconfig
 
 	var kubeclientOptions = new(runclient.Options)
 	kubeClient, err := utils.KubeClient(kubeconfigArgs, kubeclientOptions)
+
+	completeKeConfig(keConfiguration, clientset, kubeClient)
+
+	// Install flux.
+	// We just copied over github.com/fluxcd/flux2/internal/utils to 23kectl/pkg/utils
+	// and use the Apply function as is
 
 	tmpDir, err := manifestgen.MkdirTempAbs("", *kubeconfigArgs.Namespace)
 	_panic(err)
@@ -322,7 +324,7 @@ func updateConfigRepo(keConfig *KeConfig, publicKeys ssh.PublicKeys) error {
 }
 
 // completeKeConfig ...
-func completeKeConfig(config *KeConfig, clientset *kubernetes.Clientset) {
+func completeKeConfig(config *KeConfig, clientset *kubernetes.Clientset, kubeClient client.WithWatch) {
 	if strings.TrimSpace(config.Dashboard.SessionSecret) == "" {
 		config.Dashboard.SessionSecret = randHex(20)
 	}
@@ -337,35 +339,63 @@ func completeKeConfig(config *KeConfig, clientset *kubernetes.Clientset) {
 	}
 
 	if strings.TrimSpace(config.Gardenlet.SeedPodCidr) == "" {
-		// https://github.com/gardener/gardener/blob/e31175861175410185b492b861cc90ba5491a8ee/cmd/gardenlet/app/bootstrappers/seed_config.go#L73
-		// todo find proper way to find PodCIDR
-		nodes, err := clientset.CoreV1().Nodes().List(context.TODO(), metav1.ListOptions{})
-		_panic(err)
-		config.Gardenlet.SeedPodCidr = nodes.Items[0].Spec.PodCIDR
+		// We assume that either calico or cilium are used as CNI
+		// Therefore, we search for an ippool with name "default-ipv4-ippool" for the calico case.
+		// In the cilium case, we search for the configmap "cilium-config" in the kube-system namespace
+		// If none of these are found, we throw an error.
+		ipPool := unstructured.Unstructured{}
+		gvk := schema.GroupVersionKind{
+			Group:   "crd.projectcalico.org",
+			Version: "v1",
+			Kind:    "ippool",
+		}
+		ipPool.SetGroupVersionKind(gvk)
+		err := kubeClient.Get(context.Background(), client.ObjectKey{
+			Namespace: "",
+			Name:      "default-ipv4-ippool",
+		}, &ipPool)
+		if err == nil {
+			config.Gardenlet.SeedPodCidr = ipPool.Object["spec"].(map[string]interface{})["cidr"].(string)
+		} else {
+
+			ciliumConfig := corev1.ConfigMap{}
+			err = kubeClient.Get(context.Background(), client.ObjectKey{
+				Namespace: "kube-system",
+				Name:      "cilium-config",
+			}, &ciliumConfig)
+			if err != nil {
+				fmt.Println("I could not find the cilium-config configmap in your kube-systemnamespace")
+				panic(err)
+			}
+			config.Gardenlet.SeedPodCidr = ciliumConfig.Data["cluster-pool-ipv4-cidr"]
+		}
 	}
 
-	dummySvc := &apiv1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "dummy",
-		},
-		Spec: apiv1.ServiceSpec{
-			Ports:     []apiv1.ServicePort{{Name: "port", Port: 443}},
-			ClusterIP: "1.1.1.1",
-		},
+	if strings.TrimSpace(config.Gardenlet.SeedServiceCidr) == "" {
+		dummySvc := &apiv1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "dummy",
+			},
+			Spec: apiv1.ServiceSpec{
+				Ports:     []apiv1.ServicePort{{Name: "port", Port: 443}},
+				ClusterIP: "1.1.1.1",
+			},
+		}
+		_, dummyErr := clientset.CoreV1().Services("default").Create(context.Background(), dummySvc, metav1.CreateOptions{})
+		config.Gardenlet.SeedServiceCidr = strings.SplitAfter(dummyErr.Error(), "The range of valid IPs is ")[1]
 	}
-	_, dummyErr := clientset.CoreV1().Services("default").Create(context.Background(), dummySvc, metav1.CreateOptions{})
 
-	config.Gardenlet.SeedServiceCidr = strings.SplitAfter(dummyErr.Error(), "The range of valid IPs is ")[1]
+	if strings.TrimSpace(config.Gardener.ClusterIP) == "" {
+		clusterIp, ipnet, _ := net.ParseCIDR(config.Gardenlet.SeedServiceCidr)
 
-	clusterIp, ipnet, _ := net.ParseCIDR(config.Gardenlet.SeedServiceCidr)
+		clusterIp[len(clusterIp)-2] += 1
+		clusterIp[len(clusterIp)-1] += 1
 
-	clusterIp[len(clusterIp)-2] += 1
-	clusterIp[len(clusterIp)-1] += 1
-
-	if !ipnet.Contains(clusterIp) {
-		panic("Your cluster ip is out of the service IP range")
+		if !ipnet.Contains(clusterIp) {
+			panic("Your cluster ip is out of the service IP range")
+		}
+		config.Gardener.ClusterIP = clusterIp.String()
 	}
-	config.Gardener.ClusterIP = clusterIp.String()
 
 	// query for all config options we don't know
 	queryConfig(config)
