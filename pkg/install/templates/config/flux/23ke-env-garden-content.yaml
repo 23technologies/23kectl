@@ -13,6 +13,6 @@ spec:
   sourceRef:
     kind: GitRepository
     name: 23ke-config
-  path: ./my-env/garden-content/
+  path: ./garden-content/
   prune: false
   validation: none

@@ -8,6 +8,6 @@ spec:
   sourceRef:
     kind: GitRepository
     name: 23ke-config
-  path: ./my-env/config/
+  path: ./config/
   prune: true
   validation: client
