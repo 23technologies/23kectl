@@ -12,30 +12,30 @@ import (
 	"strings"
 	"time"
 
-	"github.com/fluxcd/flux2/pkg/manifestgen/sourcesecret"
+	"github.com/23technologies/23kectl/pkg/utils"
+
 	"github.com/go-git/go-billy/v5/memfs"
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing/object"
 	"github.com/go-git/go-git/v5/storage/memory"
-	apiv1 "k8s.io/api/core/v1"
+	"github.com/go-git/go-git/v5/plumbing/transport/ssh"
+
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"k8s.io/cli-runtime/pkg/genericclioptions"
 	k8syaml "sigs.k8s.io/yaml"
 
 	"github.com/fluxcd/flux2/pkg/manifestgen"
+	"github.com/fluxcd/flux2/pkg/manifestgen/sourcesecret"
 	"github.com/fluxcd/flux2/pkg/manifestgen/install"
 	"github.com/fluxcd/pkg/apis/meta"
-	"sigs.k8s.io/yaml"
 
-	"github.com/23technologies/23kectl/pkg/utils"
 	kustomizecontrollerv1beta2 "github.com/fluxcd/kustomize-controller/api/v1beta2"
-	runclient "github.com/fluxcd/pkg/runtime/client"
 	sourcecontrollerv1beta2 "github.com/fluxcd/source-controller/api/v1beta2"
-	"github.com/go-git/go-git/v5/plumbing/transport/ssh"
-	"k8s.io/cli-runtime/pkg/genericclioptions"
+	runclient "github.com/fluxcd/pkg/runtime/client"
 )
 
 // install ...
@@ -81,9 +81,9 @@ The key needs write access and the repository can remain empty.`)
 	file.Close()
 	_panic(err)
 
-	_23keConfigSec := apiv1.Secret{}
+	_23keConfigSec := corev1.Secret{}
 	tmpByte, err := os.ReadFile(file.Name())
-	yaml.Unmarshal(tmpByte, &_23keConfigSec)
+	k8syaml.Unmarshal(tmpByte, &_23keConfigSec)
 	kubeClient.Create(context.Background(), &_23keConfigSec)
 
 	// create the gitrepository resources in the cluster
@@ -351,13 +351,13 @@ func completeKeConfig(config *KeConfig, kubeClient client.WithWatch) {
 	}
 
 	if strings.TrimSpace(config.Gardenlet.SeedServiceCidr) == "" {
-		dummySvc := &apiv1.Service{
+		dummySvc := &corev1.Service{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "dummy",
 				Namespace: "default",
 			},
-			Spec: apiv1.ServiceSpec{
-				Ports:     []apiv1.ServicePort{{Name: "port", Port: 443}},
+			Spec: corev1.ServiceSpec{
+				Ports:     []corev1.ServicePort{{Name: "port", Port: 443}},
 				ClusterIP: "1.1.1.1",
 			},
 		}
