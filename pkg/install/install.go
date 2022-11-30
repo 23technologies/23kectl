@@ -40,8 +40,6 @@ import (
 )
 
 // install ...
-
-const tmpDir = "/tmp"
 const _23KERepoURI = "ssh://git@github.com/23technologies/23ke.git"
 
 func Install(kubeconfig string, keConfiguration *KeConfig) {
