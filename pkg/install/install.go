@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
+	"github.com/fatih/color"
 	"net"
 	"net/url"
 	"os"
@@ -56,6 +57,7 @@ func Install(kubeconfig string, keConfiguration *KeConfig) {
 		_panic(err)
 	}
 
+	fmt.Println("Installing flux")
 	installFlux(kubeClient, kubeconfigArgs, kubeclientOptions)
 
 	// Generate the needed deploy keys
@@ -107,6 +109,14 @@ The key needs write access and the repository can remain empty.`)
 
 	err = updateConfigRepo(keConfiguration, *publicKeys)
 	_panic(err)
+
+	// todo: show some kind of progress bar
+
+	fmt.Println("")
+	fmt.Println("")
+	fmt.Println("Awesome. Your gardener installation should be up within 10 minutes.")
+	fmt.Printf("Once it's done you can login as %s.\n", color.BlueString(keConfiguration.EmailAddress))
+	fmt.Printf("Go kill some time by eagerly pressing F5 on https://dashboard.%s\n", color.BlueString(keConfiguration.DomainConfig.Domain))
 }
 
 func generate23KEDeployKey(kubeClient client.WithWatch, secretName string, repoUrl string) error {
@@ -398,8 +408,6 @@ func completeKeConfig(config *KeConfig, kubeClient client.WithWatch) {
 }
 
 func installVPACRDs(kubeconfigArgs *genericclioptions.ConfigFlags, kubeclientOptions *runclient.Options) error {
-	var err error
-
 	fmt.Println("Looking for VPA CRDs")
 	// todo check if VPA exists in the cluster
 	exists := false
@@ -413,7 +421,9 @@ func installVPACRDs(kubeconfigArgs *genericclioptions.ConfigFlags, kubeclientOpt
 		dirPath := "./pkg/install/base-addons"
 		filePath := path.Join(dirPath, "vpa-v1-crd-gen.yaml")
 
-		_, err = utils.Apply(context.TODO(), kubeconfigArgs, kubeclientOptions, dirPath, filePath)
+		result, err := utils.Apply(context.TODO(), kubeconfigArgs, kubeclientOptions, dirPath, filePath)
+
+		fmt.Println(result)
 
 		if err != nil {
 			return err
