@@ -115,12 +115,12 @@ var configTemplate *template.Template
 func getConfigTemplate() *template.Template {
 	if configTemplate == nil {
 		templateRoot := "templates/config"
-		templatePattern := regexp.MustCompile("\\.yaml$")
+		templatePattern := regexp.MustCompile(`\.yaml$`)
 
 		tpl := makeTemplate()
 
 		// We don't use tpl.ParseFS here to keep the folder structure in the template name.
-		fs.WalkDir(embedFS, templateRoot, func(path string, d fs.DirEntry, err error) error {
+		err := fs.WalkDir(embedFS, templateRoot, func(path string, d fs.DirEntry, err error) error {
 			if d.IsDir() {
 				return nil
 			}
@@ -141,9 +141,11 @@ func getConfigTemplate() *template.Template {
 
 			return nil
 		})
+		_panic(err)
 
 		configTemplate = tpl
 	}
+
 	return configTemplate
 }
 

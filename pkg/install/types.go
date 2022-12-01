@@ -17,9 +17,10 @@ type KeConfig struct {
 }
 
 type baseClusterConfig struct {
-	Provider string `yaml:"provider"`
-	Region   string `yaml:"region"`
-	NodeCidr string `yaml:"nodeCidr"`
+	HasVerticalPodAutoscaler *bool  `yaml:"hasVerticalPodAutoscaler"`
+	Provider                 string `yaml:"provider"`
+	Region                   string `yaml:"region"`
+	NodeCidr                 string `yaml:"nodeCidr"`
 }
 
 type gardenerConfig struct {

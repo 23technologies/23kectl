@@ -95,6 +95,40 @@ func queryConfig(config *KeConfig) {
 	}
 	config.Gardenlet.SeedNodeCidr = config.BaseCluster.NodeCidr
 
+	if config.BaseCluster.HasVerticalPodAutoscaler == nil {
+		const (
+			yes       = "Yes"
+			no        = "No"
+			iDontKnow = "I don't know"
+		)
+
+		prompt = &survey.Select{
+			Message: "Does your base cluster provide vertical pod autoscaling (VPA)?",
+			Options: []string{yes, no, iDontKnow},
+		}
+
+		var answer string
+
+		err = survey.AskOne(prompt, &answer)
+		handleErr(err)
+
+		var hasVerticalPodAutoscaler bool
+
+		switch answer {
+		case yes:
+			hasVerticalPodAutoscaler = true
+		case no:
+			hasVerticalPodAutoscaler = false
+		case iDontKnow:
+			hasVerticalPodAutoscaler = false
+
+			printWarn(`A Vertical Pod Autoscaler will be deployed. If the base cluster already provides one, both may keep reversing the other one's changes. Gardener will work but you'll see lots of pod restarts. Not recommended for production use.`)
+			pressEnterToContinue()
+		}
+
+		config.BaseCluster.HasVerticalPodAutoscaler = &hasVerticalPodAutoscaler
+	}
+
 	if config.DomainConfig.Domain == "" || config.DomainConfig.Provider == "" {
 		config.DomainConfig = queryDomainConfig()
 	}

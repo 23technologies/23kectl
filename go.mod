@@ -5,6 +5,7 @@ go 1.18
 require (
 	github.com/AlecAivazis/survey/v2 v2.3.6
 	github.com/Masterminds/sprig/v3 v3.2.2
+	github.com/fatih/color v1.13.0
 	github.com/fluxcd/flux2 v0.37.0
 	github.com/fluxcd/helm-controller/api v0.27.0
 	github.com/fluxcd/image-automation-controller/api v0.27.0

@@ -51,6 +51,11 @@ func Install(kubeconfig string, keConfiguration *KeConfig) {
 
 	completeKeConfig(keConfiguration, kubeClient)
 
+	if !*keConfiguration.BaseCluster.HasVerticalPodAutoscaler {
+		err := installVPACRDs(kubeconfigArgs, kubeclientOptions)
+		_panic(err)
+	}
+
 	installFlux(kubeClient, kubeconfigArgs, kubeclientOptions)
 
 	// Generate the needed deploy keys
@@ -260,23 +265,23 @@ func updateConfigRepo(keConfig *KeConfig, publicKeys ssh.PublicKeys) error {
 		Auth: &publicKeys,
 		URL:  keConfig.GitRepo,
 	})
-	// _panic(err)
+	_panic(err)
 
 	worktree, err := repository.Worktree()
-	// _panic(err)
+	_panic(err)
 
 	_, err = worktree.Remove(".")
-	// _panic(err)
+	_panic(err)
 
 	fmt.Printf("Writing new config\n")
 	err = writeConfigDir(workTreeFs, ".", keConfig)
-	// _panic(err)
+	_panic(err)
 
 	_, err = worktree.Add(".")
-	// _panic(err)
+	_panic(err)
 
 	status, err := worktree.Status()
-	// _panic(err)
+	_panic(err)
 
 	if status.IsClean() {
 		fmt.Printf("Git reports no changes to config repo\n")
@@ -383,7 +388,32 @@ func completeKeConfig(config *KeConfig, kubeClient client.WithWatch) {
 	config.ExtensionsConfig = make(extensionsConfig)
 	config.ExtensionsConfig["provider-"+config.BaseCluster.Provider] = map[string]bool{"enabled": true}
 	config.ExtensionsConfig[dnsProviderToProvider[config.DomainConfig.Provider]] = map[string]bool{"enabled": true}
+}
 
+func installVPACRDs(kubeconfigArgs *genericclioptions.ConfigFlags, kubeclientOptions *runclient.Options) error {
+	var err error
+
+	fmt.Println("Looking for VPA CRDs")
+	// todo check if VPA exists in the cluster
+	exists := false
+
+	if exists {
+		fmt.Println("VPA CRDs already exist")
+	} else {
+		fmt.Println("Creating VPA CRDs")
+
+		// todo embed yaml or get it from the 23ke repo
+		dirPath := "./pkg/install/base-addons"
+		filePath := path.Join(dirPath, "vpa-v1-crd-gen.yaml")
+
+		_, err = utils.Apply(context.TODO(), kubeconfigArgs, kubeclientOptions, dirPath, filePath)
+
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func randHex(bytes int) string {

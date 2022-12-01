@@ -3,6 +3,7 @@ package install
 import (
 	"encoding/base64"
 	"fmt"
+	"github.com/fatih/color"
 	"strings"
 )
 
@@ -23,3 +24,6 @@ func base64String(s string) string {
 
 	return bob.String()
 }
+
+var printWarn = color.New(color.FgYellow).PrintlnFunc()
+var printErr = color.New(color.FgRed).PrintlnFunc()
