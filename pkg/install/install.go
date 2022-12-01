@@ -161,6 +161,7 @@ func generate23KEDeployKey(kubeClient client.WithWatch, secretName string, repoU
 
 // createGitRepositories ...
 func createGitRepositories(kubeClient client.WithWatch, keConfiguration KeConfig) {
+	var err error
 
 	gitrepo23ke := sourcecontrollerv1beta2.GitRepository{
 		TypeMeta: metav1.TypeMeta{
@@ -180,7 +181,10 @@ func createGitRepositories(kubeClient client.WithWatch, keConfiguration KeConfig
 		Status: sourcecontrollerv1beta2.GitRepositoryStatus{},
 	}
 
-	kubeClient.Create(context.TODO(), &gitrepo23ke, &client.CreateOptions{})
+	err = kubeClient.Create(context.TODO(), &gitrepo23ke, &client.CreateOptions{})
+	if err != nil {
+		printErr(err)
+	}
 
 	gitrepo23keconfig := sourcecontrollerv1beta2.GitRepository{
 		TypeMeta: metav1.TypeMeta{
@@ -195,12 +199,15 @@ func createGitRepositories(kubeClient client.WithWatch, keConfiguration KeConfig
 			URL:       keConfiguration.GitRepo,
 			SecretRef: &meta.LocalObjectReference{Name: "23ke-config-key"},
 			Interval:  metav1.Duration{Duration: time.Minute},
-			Reference: &sourcecontrollerv1beta2.GitRepositoryRef{Branch: "master"},
+			Reference: &sourcecontrollerv1beta2.GitRepositoryRef{Branch: "main"},
 		},
 		Status: sourcecontrollerv1beta2.GitRepositoryStatus{},
 	}
 
-	kubeClient.Create(context.TODO(), &gitrepo23keconfig, &client.CreateOptions{})
+	err = kubeClient.Create(context.TODO(), &gitrepo23keconfig, &client.CreateOptions{})
+	if err != nil {
+		printErr(err)
+	}
 }
 
 // createKustomizations ...
