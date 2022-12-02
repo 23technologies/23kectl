@@ -5,13 +5,14 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
-	"github.com/fatih/color"
 	"net"
 	"net/url"
 	"os"
 	"path"
 	"strings"
 	"time"
+
+	"github.com/fatih/color"
 
 	"github.com/23technologies/23kectl/pkg/utils"
 
@@ -50,13 +51,6 @@ func Install(kubeconfig string, keConfiguration *KeConfig) {
 	var kubeclientOptions = new(runclient.Options)
 	kubeClient, err := utils.KubeClient(kubeconfigArgs, kubeclientOptions)
 
-	completeKeConfig(keConfiguration, kubeClient)
-
-	if !*keConfiguration.BaseCluster.HasVerticalPodAutoscaler {
-		err := installVPACRDs(kubeconfigArgs, kubeclientOptions)
-		_panic(err)
-	}
-
 	fmt.Println("Installing flux")
 	installFlux(kubeClient, kubeconfigArgs, kubeclientOptions)
 
@@ -66,16 +60,21 @@ func Install(kubeconfig string, keConfiguration *KeConfig) {
 Please contact the 23T administrators and ask them to add the key.
 Depending on your relationship with 23T, 23T will come up with a pricing model for you.`)
 	// todo dont ask if deploy key already works
-	err = generate23KEDeployKey(kubeClient, "23ke-key", _23KERepoURI)
+	publicKeys23ke, err := generateDeployKey(kubeClient, "23ke-key", _23KERepoURI)
 	_panic(err)
 	pressEnterToContinue()
 	// todo check if provided deploy key works on 23ke repo
+
+	// todo use these versions somewhere
+	versions, err := list23keTags(publicKeys23ke)
+	_panic(err)
+	_ = versions
 
 	fmt.Println("Generating 23ke-config deploy key")
 	fmt.Println(`You will need to add this key to your git remote git repository.
 The key needs write access and the repository can remain empty.`)
 	// todo dont ask if deploy key already works
-	err = generate23KEDeployKey(kubeClient, "23ke-config-key", keConfiguration.GitRepo)
+	publicKeysConfig, err := generateDeployKey(kubeClient, "23ke-config-key", keConfiguration.GitRepo)
 	_panic(err)
 	pressEnterToContinue()
 	// todo check if provided deploy key works on 23ke repo
@@ -97,21 +96,20 @@ The key needs write access and the repository can remain empty.`)
 	k8syaml.Unmarshal(tmpByte, &_23keConfigSec)
 	kubeClient.Create(context.Background(), &_23keConfigSec)
 
+	completeKeConfig(keConfiguration, kubeClient)
+
+	if !*keConfiguration.BaseCluster.HasVerticalPodAutoscaler {
+		err := installVPACRDs(kubeconfigArgs, kubeclientOptions)
+		_panic(err)
+	}
+
 	// create the gitrepository resources in the cluster
 	createGitRepositories(kubeClient, *keConfiguration)
 
 	// create the kustomization resources in the cluster
 	createKustomizations(kubeClient)
 
-	// finally update the config repository with the current configuration
-	sec := corev1.Secret{}
-	kubeClient.Get(context.Background(), client.ObjectKey{
-		Namespace: "flux-system",
-		Name:      "23ke-config-key",
-	}, &sec)
-	publicKeys, err := ssh.NewPublicKeys("git", sec.Data["identity"], "")
-
-	err = updateConfigRepo(keConfiguration, *publicKeys)
+	err = updateConfigRepo(keConfiguration, *publicKeysConfig)
 	_panic(err)
 
 	// todo: show some kind of progress bar
@@ -123,10 +121,9 @@ The key needs write access and the repository can remain empty.`)
 	fmt.Printf("Go kill some time by eagerly pressing F5 on https://dashboard.%s\n", color.BlueString(keConfiguration.DomainConfig.Domain))
 }
 
-func generate23KEDeployKey(kubeClient client.WithWatch, secretName string, repoUrl string) error {
+func generateDeployKey(kubeClient client.WithWatch, secretName string, repoUrl string) (*ssh.PublicKeys, error) {
 	namespace := "flux-system"
 
-	// todo check if exists
 	sec := corev1.Secret{}
 	exists := false
 	err := kubeClient.Get(context.Background(), client.ObjectKey{
@@ -137,17 +134,16 @@ func generate23KEDeployKey(kubeClient client.WithWatch, secretName string, repoU
 		exists = true
 	}
 	if exists {
-		// todo display if exists
-		if err != nil {
-			return err
-		}
+		fmt.Println(`The following key was already deployed to you cluster and I did not change it. Make sure that your git repository can be accessed by this key.`)
 		fmt.Println(string(sec.Data["identity.pub"]))
-		return nil
+
+		key, _ := ssh.NewPublicKeys("git", sec.Data["identity"], "")
+		return key, nil
 	} else {
 		fluxRepoSecret := corev1.Secret{}
 		repourl, err := url.Parse(repoUrl)
 		if err != nil {
-			return err
+			return nil, err
 		}
 
 		// define some options for the generation of the flux source secret
@@ -166,11 +162,13 @@ func generate23KEDeployKey(kubeClient client.WithWatch, secretName string, repoU
 		_panic(err)
 		fluxRepoSecret.SetNamespace(namespace)
 
+		fmt.Println(`I created the following ssh key for you. Make sure that your git repository can be accessed by this key.`)
 		fmt.Println(fluxRepoSecret.StringData["identity.pub"])
 		kubeClient.Create(context.Background(), &fluxRepoSecret)
-	}
 
-	return nil
+		key, _ := ssh.NewPublicKeys("git", fluxRepoSecret.Data["identity"], "")
+		return key, nil
+	}
 }
 
 // createGitRepositories ...
