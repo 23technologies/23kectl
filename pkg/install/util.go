@@ -1,7 +1,9 @@
 package install
 
 import (
+	"crypto/rand"
 	"encoding/base64"
+	"encoding/hex"
 	"fmt"
 	"sort"
 	"strings"
@@ -75,6 +77,12 @@ func list23keTags(publicKeys *ssh.PublicKeys) ([]string, error) {
 		maxMinorMinus3 = maxMinor - 3
 	}
 
-	versions = slice.Filter(versions, (func(v *semver.Version) bool { return v.Minor() >= maxMinorMinus3 }))
-	return slice.Map(versions, (func(v *semver.Version) string { return v.String() })), nil
+	versions = slice.Filter(versions, func(v *semver.Version) bool { return v.Minor() >= maxMinorMinus3 })
+	return slice.Map(versions, func(v *semver.Version) string { return v.String() }), nil
+}
+
+func randHex(bytes int) string {
+	byteArr := make([]byte, bytes)
+	rand.Read(byteArr)
+	return hex.EncodeToString(byteArr)
 }

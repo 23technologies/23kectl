@@ -2,44 +2,20 @@ package install
 
 import (
 	"context"
-	"crypto/rand"
-	"encoding/hex"
-	"errors"
 	"fmt"
-	"github.com/go-git/go-git/v5/plumbing/transport"
-	"net"
-	"net/url"
-	"os"
-	"path"
-	"strings"
-	"time"
-
 	"github.com/fatih/color"
+	"net"
+	"strings"
 
 	"github.com/23technologies/23kectl/pkg/utils"
 
-	"github.com/go-git/go-billy/v5/memfs"
-	"github.com/go-git/go-git/v5"
-	"github.com/go-git/go-git/v5/plumbing/object"
-	"github.com/go-git/go-git/v5/plumbing/transport/ssh"
-	"github.com/go-git/go-git/v5/storage/memory"
-
+	runclient "github.com/fluxcd/pkg/runtime/client"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	k8syaml "sigs.k8s.io/yaml"
-
-	"github.com/fluxcd/flux2/pkg/manifestgen"
-	"github.com/fluxcd/flux2/pkg/manifestgen/install"
-	"github.com/fluxcd/flux2/pkg/manifestgen/sourcesecret"
-	"github.com/fluxcd/pkg/apis/meta"
-
-	kustomizecontrollerv1beta2 "github.com/fluxcd/kustomize-controller/api/v1beta2"
-	runclient "github.com/fluxcd/pkg/runtime/client"
-	sourcecontrollerv1beta2 "github.com/fluxcd/source-controller/api/v1beta2"
 )
 
 // install ...
@@ -53,62 +29,36 @@ func Install(kubeconfig string, keConfiguration *KeConfig) {
 	var kubeclientOptions = new(runclient.Options)
 	kubeClient, err := utils.KubeClient(kubeconfigArgs, kubeclientOptions)
 
-	fmt.Println("Installing flux")
 	installFlux(kubeClient, kubeconfigArgs, kubeclientOptions)
+
+	completeKeConfig(keConfiguration, kubeClient)
+	queryConfig(keConfiguration)
+	// enable the provider extensions needed for a minimal setup
+	keConfiguration.ExtensionsConfig = make(extensionsConfig)
+	keConfiguration.ExtensionsConfig["provider-"+keConfiguration.BaseCluster.Provider] = map[string]bool{"enabled": true}
+	keConfiguration.ExtensionsConfig[dnsProviderToProvider[keConfiguration.DomainConfig.Provider]] = map[string]bool{"enabled": true}
 
 	// Generate the needed deploy keys
 	fmt.Println("Generating 23ke deploy key")
 	fmt.Println(`This key will need to be added by 23T to the 23KE repository.
 Please contact the 23T administrators and ask them to add the key.
 Depending on your relationship with 23T, 23T will come up with a pricing model for you.`)
-	// todo dont ask if deploy key already works
 	publicKeys23ke, err := generateDeployKey(kubeClient, "23ke-key", _23KERepoURI)
+	_ = publicKeys23ke // todo use
 	_panic(err)
-	pressEnterToContinue()
-	// todo check if provided deploy key works on 23ke repo
-
-	// todo use these versions somewhere
-	versions, err := list23keTags(publicKeys23ke)
-	_panic(err)
-	_ = versions
 
 	fmt.Println("Generating 23ke-config deploy key")
 	fmt.Println(`You will need to add this key to your git remote git repository.
 The key needs write access and the repository can remain empty.`)
-	// todo dont ask if deploy key already works
 	publicKeysConfig, err := generateDeployKey(kubeClient, "23ke-config-key", keConfiguration.GitRepo)
 	_panic(err)
-	pressEnterToContinue()
-	// todo check if provided deploy key works on 23ke repo
 
-	// Create the 23ke-config secret
-	fmt.Println("Creating '23ke-config' secret")
-	filePath := path.Join("/tmp", "23ke-config.yaml")
-	file, err := os.OpenFile(filePath, os.O_WRONLY|os.O_CREATE, 0600)
-	if err != nil {
-		file.Close()
-		panic(err)
-	}
-	err = getLocalTemplate().ExecuteTemplate(file, "23ke-config.yaml", keConfiguration)
-	file.Close()
-	_panic(err)
+	create23keConfigSecret(keConfiguration, kubeClient)
 
-	_23keConfigSec := corev1.Secret{}
-	tmpByte, err := os.ReadFile(file.Name())
-	k8syaml.Unmarshal(tmpByte, &_23keConfigSec)
-	kubeClient.Create(context.Background(), &_23keConfigSec)
+	installVPACRDs(keConfiguration, kubeconfigArgs, kubeclientOptions)
 
-	completeKeConfig(keConfiguration, kubeClient)
-
-	if !*keConfiguration.BaseCluster.HasVerticalPodAutoscaler {
-		err := installVPACRDs(kubeconfigArgs, kubeclientOptions)
-		_panic(err)
-	}
-
-	// create the gitrepository resources in the cluster
 	createGitRepositories(kubeClient, *keConfiguration)
 
-	// create the kustomization resources in the cluster
 	createKustomizations(kubeClient)
 
 	err = updateConfigRepo(keConfiguration, *publicKeysConfig)
@@ -123,215 +73,6 @@ The key needs write access and the repository can remain empty.`)
 	fmt.Printf("Go kill some time by eagerly pressing F5 on https://dashboard.%s\n", color.BlueString(keConfiguration.DomainConfig.Domain))
 }
 
-func generateDeployKey(kubeClient client.WithWatch, secretName string, repoUrl string) (*ssh.PublicKeys, error) {
-	namespace := "flux-system"
-
-	sec := corev1.Secret{}
-	exists := false
-	err := kubeClient.Get(context.Background(), client.ObjectKey{
-		Namespace: namespace,
-		Name:      secretName,
-	}, &sec)
-	if err == nil {
-		exists = true
-	}
-	if exists {
-		fmt.Println(`The following key was already deployed to you cluster and I did not change it. Make sure that your git repository can be accessed by this key.`)
-		fmt.Println(string(sec.Data["identity.pub"]))
-
-		key, _ := ssh.NewPublicKeys("git", sec.Data["identity"], "")
-		return key, nil
-	} else {
-		fluxRepoSecret := corev1.Secret{}
-		repourl, err := url.Parse(repoUrl)
-		if err != nil {
-			return nil, err
-		}
-
-		// define some options for the generation of the flux source secret
-		sourceSecOpts := sourcesecret.MakeDefaultOptions()
-		sourceSecOpts.PrivateKeyAlgorithm = "ed25519"
-		sourceSecOpts.SSHHostname = repourl.Hostname()
-		sourceSecOpts.Name = secretName
-
-		// generate the flux source secret manifest and store it as []byte in the shootResources
-		secManifest, err := sourcesecret.Generate(sourceSecOpts)
-
-		// lastly, also deploy the flux source secret into the projectNamespace in the seed cluster
-		// in order to reuse it, when other shoots are created
-		err = k8syaml.Unmarshal([]byte(secManifest.Content), &fluxRepoSecret)
-
-		_panic(err)
-		fluxRepoSecret.SetNamespace(namespace)
-
-		fmt.Println(`I created the following ssh key for you. Make sure that your git repository can be accessed by this key.`)
-		fmt.Println(fluxRepoSecret.StringData["identity.pub"])
-		kubeClient.Create(context.Background(), &fluxRepoSecret)
-
-		key, _ := ssh.NewPublicKeys("git", fluxRepoSecret.Data["identity"], "")
-		return key, nil
-	}
-}
-
-// createGitRepositories ...
-func createGitRepositories(kubeClient client.WithWatch, keConfiguration KeConfig) {
-	var err error
-
-	gitrepo23ke := sourcecontrollerv1beta2.GitRepository{
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: "source.toolkit.fluxcd.io/v1beta2",
-			Kind:       "GitRepository",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "23ke",
-			Namespace: "flux-system",
-		},
-		Spec: sourcecontrollerv1beta2.GitRepositorySpec{
-			URL:       _23KERepoURI,
-			SecretRef: &meta.LocalObjectReference{Name: "23ke-key"},
-			Interval:  metav1.Duration{Duration: time.Minute},
-			Reference: &sourcecontrollerv1beta2.GitRepositoryRef{Tag: keConfiguration.Version},
-		},
-		Status: sourcecontrollerv1beta2.GitRepositoryStatus{},
-	}
-
-	err = kubeClient.Create(context.TODO(), &gitrepo23ke, &client.CreateOptions{})
-	if err != nil {
-		printErr(err)
-	}
-
-	gitrepo23keconfig := sourcecontrollerv1beta2.GitRepository{
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: "source.toolkit.fluxcd.io/v1beta2",
-			Kind:       "GitRepository",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "23ke-config",
-			Namespace: "flux-system",
-		},
-		Spec: sourcecontrollerv1beta2.GitRepositorySpec{
-			URL:       keConfiguration.GitRepo,
-			SecretRef: &meta.LocalObjectReference{Name: "23ke-config-key"},
-			Interval:  metav1.Duration{Duration: time.Minute},
-			Reference: &sourcecontrollerv1beta2.GitRepositoryRef{Branch: "main"}, // todo ask user for branch
-		},
-		Status: sourcecontrollerv1beta2.GitRepositoryStatus{},
-	}
-
-	err = kubeClient.Create(context.TODO(), &gitrepo23keconfig, &client.CreateOptions{})
-	if err != nil {
-		printErr(err)
-	}
-}
-
-// createKustomizations ...
-func createKustomizations(kubeClient client.WithWatch) {
-
-	ks23keBase := kustomizecontrollerv1beta2.Kustomization{
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: "kustomize.toolkit.fluxcd.io/v1beta2",
-			Kind:       "Kustomization",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "23ke-base",
-			Namespace: "flux-system",
-		},
-		Spec: kustomizecontrollerv1beta2.KustomizationSpec{
-			Interval: metav1.Duration{
-				Duration: time.Minute,
-			},
-			Path:  "./",
-			Prune: true,
-			SourceRef: kustomizecontrollerv1beta2.CrossNamespaceSourceReference{
-				Kind: "GitRepository",
-				Name: "23ke",
-			},
-		},
-		Status: kustomizecontrollerv1beta2.KustomizationStatus{},
-	}
-
-	kubeClient.Create(context.TODO(), &ks23keBase, &client.CreateOptions{})
-
-	ks23keConfig := kustomizecontrollerv1beta2.Kustomization{
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: "kustomize.toolkit.fluxcd.io/v1beta2",
-			Kind:       "Kustomization",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "23ke-config",
-			Namespace: "flux-system",
-		},
-		Spec: kustomizecontrollerv1beta2.KustomizationSpec{
-			Interval: metav1.Duration{
-				Duration: time.Minute,
-			},
-			Path:  "./",
-			Prune: true,
-			SourceRef: kustomizecontrollerv1beta2.CrossNamespaceSourceReference{
-				Kind: "GitRepository",
-				Name: "23ke-config",
-			},
-		},
-		Status: kustomizecontrollerv1beta2.KustomizationStatus{},
-	}
-
-	kubeClient.Create(context.TODO(), &ks23keConfig, &client.CreateOptions{})
-}
-
-func updateConfigRepo(keConfig *KeConfig, publicKeys ssh.PublicKeys) error {
-	var err error
-	workTreeFs := memfs.New()
-
-	// todo catch "empty repo" error
-	fmt.Printf("Cloning config repo to memory\n")
-	repository, err := git.Clone(memory.NewStorage(), workTreeFs, &git.CloneOptions{
-		Auth: &publicKeys,
-		URL:  keConfig.GitRepo,
-	})
-	if err != nil && !errors.Is(err, transport.ErrEmptyRemoteRepository) {
-		panic(err)
-	}
-
-	worktree, err := repository.Worktree()
-	_panic(err)
-
-	_, err = worktree.Remove(".")
-	_panic(err)
-
-	fmt.Printf("Writing new config\n")
-	err = writeConfigDir(workTreeFs, ".", keConfig)
-	_panic(err)
-
-	_, err = worktree.Add(".")
-	_panic(err)
-
-	status, err := worktree.Status()
-	_panic(err)
-
-	if status.IsClean() {
-		fmt.Printf("Git reports no changes to config repo\n")
-	} else {
-		fmt.Printf("Commiting to config repo\n")
-		_, err = worktree.Commit("Config update through 23kectl", &git.CommitOptions{
-			Author: &object.Signature{
-				Name:  "23ke Ctl",
-				Email: "23kectl@23technologies.cloud",
-				When:  time.Now(),
-			},
-		})
-		// _panic(err)
-
-		fmt.Printf("Pushing to config repo\n")
-		err = repository.Push(&git.PushOptions{
-			Auth: &publicKeys,
-		})
-		_panic(err)
-	}
-
-	return nil
-}
-
-// completeKeConfig ...
 func completeKeConfig(config *KeConfig, kubeClient client.WithWatch) {
 	if strings.TrimSpace(config.Dashboard.SessionSecret) == "" {
 		config.Dashboard.SessionSecret = randHex(20)
@@ -405,65 +146,4 @@ func completeKeConfig(config *KeConfig, kubeClient client.WithWatch) {
 		}
 		config.Gardener.ClusterIP = clusterIp.String()
 	}
-
-	// query for all config options we don't know
-	queryConfig(config)
-
-	// enable the provider extensions needed for a minimal setup
-	config.ExtensionsConfig = make(extensionsConfig)
-	config.ExtensionsConfig["provider-"+config.BaseCluster.Provider] = map[string]bool{"enabled": true}
-	config.ExtensionsConfig[dnsProviderToProvider[config.DomainConfig.Provider]] = map[string]bool{"enabled": true}
-}
-
-func installVPACRDs(kubeconfigArgs *genericclioptions.ConfigFlags, kubeclientOptions *runclient.Options) error {
-	fmt.Println("Looking for VPA CRDs")
-	// todo check if VPA exists in the cluster
-	exists := false
-
-	if exists {
-		fmt.Println("VPA CRDs already exist")
-	} else {
-		fmt.Println("Creating VPA CRDs")
-
-		// todo embed yaml or get it from the 23ke repo
-		dirPath := "./pkg/install/base-addons"
-		filePath := path.Join(dirPath, "vpa-v1-crd-gen.yaml")
-
-		result, err := utils.Apply(context.TODO(), kubeconfigArgs, kubeclientOptions, dirPath, filePath)
-
-		fmt.Println(result)
-
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-func randHex(bytes int) string {
-	byteArr := make([]byte, bytes)
-	rand.Read(byteArr)
-	return hex.EncodeToString(byteArr)
-}
-
-// installFlux ...
-func installFlux(kubeClient client.WithWatch, kubeconfigArgs *genericclioptions.ConfigFlags, kubeclientOptions *runclient.Options) {
-	// Install flux.
-	// We just copied over github.com/fluxcd/flux2/internal/utils to 23kectl/pkg/utils
-	// and use the Apply function as is
-	tmpDir, err := manifestgen.MkdirTempAbs("", *kubeconfigArgs.Namespace)
-	_panic(err)
-
-	defer os.RemoveAll(tmpDir)
-
-	opts := install.MakeDefaultOptions()
-	manifest, err := install.Generate(opts, "")
-	_panic(err)
-
-	_, err = manifest.WriteFile(tmpDir)
-	_panic(err)
-
-	_, err = utils.Apply(context.Background(), kubeconfigArgs, kubeclientOptions, tmpDir, path.Join(tmpDir, manifest.Path))
-	_panic(err)
 }
