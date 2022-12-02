@@ -4,7 +4,9 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"errors"
 	"fmt"
+	"github.com/go-git/go-git/v5/plumbing/transport"
 	"net"
 	"net/url"
 	"os"
@@ -286,7 +288,9 @@ func updateConfigRepo(keConfig *KeConfig, publicKeys ssh.PublicKeys) error {
 		Auth: &publicKeys,
 		URL:  keConfig.GitRepo,
 	})
-	_panic(err)
+	if err != nil && !errors.Is(err, transport.ErrEmptyRemoteRepository) {
+		panic(err)
+	}
 
 	worktree, err := repository.Worktree()
 	_panic(err)
