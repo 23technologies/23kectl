@@ -65,16 +65,20 @@ func Install(kubeconfig string, keConfiguration *KeConfig) {
 	fmt.Println(`This key will need to be added by 23T to the 23KE repository.
 Please contact the 23T administrators and ask them to add the key.
 Depending on your relationship with 23T, 23T will come up with a pricing model for you.`)
+	// todo dont ask if deploy key already works
 	err = generate23KEDeployKey(kubeClient, "23ke-key", _23KERepoURI)
 	_panic(err)
 	pressEnterToContinue()
+	// todo check if provided deploy key works on 23ke repo
 
 	fmt.Println("Generating 23ke-config deploy key")
 	fmt.Println(`You will need to add this key to your git remote git repository.
 The key needs write access and the repository can remain empty.`)
+	// todo dont ask if deploy key already works
 	err = generate23KEDeployKey(kubeClient, "23ke-config-key", keConfiguration.GitRepo)
 	_panic(err)
 	pressEnterToContinue()
+	// todo check if provided deploy key works on 23ke repo
 
 	// Create the 23ke-config secret
 	fmt.Println("Creating '23ke-config' secret")
@@ -209,7 +213,7 @@ func createGitRepositories(kubeClient client.WithWatch, keConfiguration KeConfig
 			URL:       keConfiguration.GitRepo,
 			SecretRef: &meta.LocalObjectReference{Name: "23ke-config-key"},
 			Interval:  metav1.Duration{Duration: time.Minute},
-			Reference: &sourcecontrollerv1beta2.GitRepositoryRef{Branch: "main"},
+			Reference: &sourcecontrollerv1beta2.GitRepositoryRef{Branch: "main"}, // todo ask user for branch
 		},
 		Status: sourcecontrollerv1beta2.GitRepositoryStatus{},
 	}
@@ -277,6 +281,8 @@ func createKustomizations(kubeClient client.WithWatch) {
 func updateConfigRepo(keConfig *KeConfig, publicKeys ssh.PublicKeys) error {
 	var err error
 	workTreeFs := memfs.New()
+
+	// todo catch "empty repo" error
 	fmt.Printf("Cloning config repo to memory\n")
 	repository, err := git.Clone(memory.NewStorage(), workTreeFs, &git.CloneOptions{
 		Auth: &publicKeys,

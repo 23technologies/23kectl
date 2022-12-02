@@ -22,6 +22,7 @@ func queryConfig(config *KeConfig) {
 	var err error
 	var prompt survey.Prompt
 
+	// todo show available versions (create secret first!)
 	if config.Version == "" {
 		prompt = &survey.Input{
 			Message: "Which version of 23ke would you like to install (should match a git tag)?",
@@ -30,6 +31,7 @@ func queryConfig(config *KeConfig) {
 		handleErr(err)
 	}
 
+	// todo explain to user. what's this for?
 	if config.EmailAddress == "" {
 		prompt = &survey.Input{
 			Message: "Please enter your email address",
@@ -38,6 +40,7 @@ func queryConfig(config *KeConfig) {
 		handleErr(err)
 	}
 
+	// todo explain to user. what's this for?
 	if config.Issuer.Acme.Email == "" {
 		prompt = &survey.Input{
 			Message: "Please enter your email address for acme certificate generation",
@@ -46,7 +49,8 @@ func queryConfig(config *KeConfig) {
 		err = survey.AskOne(prompt, &config.Issuer.Acme.Email, withValidator("required,email"))
 		handleErr(err)
 	}
-
+	// todo move right after user emailaddress
+	// todo explain to user. what's this for?
 	if config.AdminPassword == "" {
 		var plainPassword string
 
@@ -61,14 +65,18 @@ func queryConfig(config *KeConfig) {
 		handleErr(err)
 	}
 
+	// todo explain to user. what's this for?
 	if config.GitRepo == "" {
 		prompt = &survey.Input{
+			// todo allow form git@github.com:User/Repo.git and transform it to url form.
+			// todo don't allow http url
 			Message: "Please enter your git repository remote, e.g. ssh://git@github.com/User/Repo.git",
 		}
 		err = survey.AskOne(prompt, &config.GitRepo, withValidator("required,url"))
 		handleErr(err)
 	}
 
+	// todo explain to user. what's this for?
 	if config.BaseCluster.Provider == "" {
 		prompt = &survey.Select{
 			Message: "Select the provider of your base cluster",
@@ -86,6 +94,7 @@ func queryConfig(config *KeConfig) {
 		handleErr(err)
 	}
 
+	// todo explain to user. document where to find it on supported providers
 	if config.BaseCluster.NodeCidr == "" {
 		prompt = &survey.Input{
 			Message: "Please enter the node CIDR of your base cluster in the form: x.x.x.x/y",
@@ -95,6 +104,7 @@ func queryConfig(config *KeConfig) {
 	}
 	config.Gardenlet.SeedNodeCidr = config.BaseCluster.NodeCidr
 
+	// todo explain to user. what does "I don't know" imply?
 	if config.BaseCluster.HasVerticalPodAutoscaler == nil {
 		const (
 			yes       = "Yes"
@@ -135,6 +145,7 @@ func queryConfig(config *KeConfig) {
 
 }
 
+// todo explain to user. ask for domain after provider configuration to make it clearer what this domain is meant for.
 func queryDomainConfig() domainConfiguration {
 	var err error
 	var domain, provider string
@@ -163,25 +174,25 @@ func (d *dnsCredentialsAzure) parseCredentials() {
 			Name:      "TenantId",
 			Prompt:    &survey.Input{Message: "Azure tenant ID?"},
 			Validate:  makeValidator("required"),
-			Transform: survey.TransformString(base64String),
+			Transform: survey.TransformString(base64String), // todo don't transform if it's base64 already
 		},
 		{
 			Name:      "SubscriptionId",
 			Prompt:    &survey.Input{Message: "Azure subscription ID?"},
 			Validate:  makeValidator("required"),
-			Transform: survey.TransformString(base64String),
+			Transform: survey.TransformString(base64String), // todo don't transform if it's base64 already
 		},
 		{
 			Name:      "ClientID",
 			Prompt:    &survey.Input{Message: "Azure client ID?"},
 			Validate:  makeValidator("required"),
-			Transform: survey.TransformString(base64String),
+			Transform: survey.TransformString(base64String), // todo don't transform if it's base64 already
 		},
 		{
 			Name:      "ClientSecret",
 			Prompt:    &survey.Input{Message: "Azure client secret?"},
 			Validate:  makeValidator("required"),
-			Transform: survey.TransformString(base64String),
+			Transform: survey.TransformString(base64String), // todo don't transform if it's base64 already
 		},
 	}
 
@@ -195,19 +206,19 @@ func (d *dnsCredentialsOSDesignate) parseCredentials() {
 			Name:      "ApplicationCredentialID",
 			Prompt:    &survey.Input{Message: "Application Credential ID?"},
 			Validate:  makeValidator("required"),
-			Transform: survey.TransformString(base64String),
+			Transform: survey.TransformString(base64String), // todo don't transform if it's base64 already
 		},
 		{
 			Name:      "ApplicationCredentialSecret",
 			Prompt:    &survey.Input{Message: "Application Credential Secret?"},
 			Validate:  makeValidator("required"),
-			Transform: survey.TransformString(base64String),
+			Transform: survey.TransformString(base64String), // todo don't transform if it's base64 already
 		},
 		{
 			Name:      "AuthURL",
 			Prompt:    &survey.Input{Message: "AuthURL?"},
 			Validate:  makeValidator("required,url"),
-			Transform: survey.TransformString(base64String),
+			Transform: survey.TransformString(base64String), // todo don't transform if it's base64 already
 		},
 	}
 
@@ -221,13 +232,13 @@ func (d *dnsCredentialsAWS53) parseCredentials() {
 			Name:      "AccessKeyID",
 			Prompt:    &survey.Input{Message: "Access Key ID?"},
 			Validate:  makeValidator("required"),
-			Transform: survey.TransformString(base64String),
+			Transform: survey.TransformString(base64String), // todo don't transform if it's base64 already
 		},
 		{
 			Name:      "SecretAccessKey",
 			Prompt:    &survey.Input{Message: "Secret Access Key?"},
 			Validate:  makeValidator("required"),
-			Transform: survey.TransformString(base64String),
+			Transform: survey.TransformString(base64String), // todo don't transform if it's base64 already
 		},
 	}
 
