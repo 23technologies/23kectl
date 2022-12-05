@@ -82,20 +82,30 @@ func updateConfigRepo(keConfig *KeConfig, publicKeys ssh.PublicKeys) error {
 	}
 
 	worktree, err := repository.Worktree()
-	printErr(err)
+	if err != nil {
+		printErr(err)
+	}
 
 	_, err = worktree.Remove(".")
-	printErr(err)
+	if err != nil {
+		printErr(err)
+	}
 
 	fmt.Printf("Writing new config\n")
 	err = writeConfigDir(workTreeFs, ".", keConfig)
-	printErr(err)
+	if err != nil {
+		printErr(err)
+	}
 
 	_, err = worktree.Add(".")
-	printErr(err)
+	if err != nil {
+		printErr(err)
+	}
 
 	status, err := worktree.Status()
-	printErr(err)
+	if err != nil {
+		printErr(err)
+	}
 
 	if status.IsClean() {
 		fmt.Printf("Git reports no changes to config repo\n")
@@ -108,7 +118,9 @@ func updateConfigRepo(keConfig *KeConfig, publicKeys ssh.PublicKeys) error {
 				When:  time.Now(),
 			},
 		})
-		printErr(err)
+		if err != nil {
+			printErr(err)
+		}
 
 		fmt.Printf("Pushing to config repo\n")
 		err = repository.Push(&git.PushOptions{
