@@ -48,8 +48,8 @@ Depending on your relationship with 23T, 23T will come up with a pricing model f
 	_panic(err)
 
 	fmt.Println("Generating 23ke-config deploy key")
-	fmt.Println(`You will need to add this key to your git remote git repository.
-The key needs write access and the repository can remain empty.`)
+	fmt.Println(`You will need to add this key to your git remote git repository.`)
+	printWarn("This key needs write access!")
 	publicKeysConfig, err := generateDeployKey(kubeClient, "23ke-config-key", keConfiguration.GitRepo)
 	_panic(err)
 
