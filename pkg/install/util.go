@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"fmt"
+	"github.com/go-playground/validator/v10"
 	"sort"
 	"strings"
 
@@ -30,13 +31,25 @@ func pressEnterToContinue() {
 	fmt.Scanln()
 }
 
+func coerceBase64String(s string) string {
+	if isBase64String(s) {
+		return s
+	} else {
+		return base64String(s)
+	}
+}
+
+func isBase64String ( s string ) bool {
+	err := validator.New().Var(s, "base64")
+	return err == nil
+}
+
 func base64String(s string) string {
 	bob := strings.Builder{}
 	base64.NewEncoder(base64.StdEncoding, &bob).Write([]byte(s))
 
 	return bob.String()
 }
-
 
 const colorErr = color.FgRed
 const colorHighlight = color.FgBlue
@@ -94,3 +107,4 @@ func randHex(bytes int) string {
 	rand.Read(byteArr)
 	return hex.EncodeToString(byteArr)
 }
+

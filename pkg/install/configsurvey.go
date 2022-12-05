@@ -172,27 +172,27 @@ func (d *dnsCredentialsAzure) parseCredentials() {
 	qs := []*survey.Question{
 		{
 			Name:      "TenantId",
-			Prompt:    &survey.Input{Message: "Azure tenant ID?"},
+			Prompt:    &survey.Input{Message: "Azure tenant ID? (plain or base64)"},
 			Validate:  makeValidator("required"),
-			Transform: survey.TransformString(base64String), // todo don't transform if it's base64 already
+			Transform: survey.TransformString(coerceBase64String),
 		},
 		{
 			Name:      "SubscriptionId",
-			Prompt:    &survey.Input{Message: "Azure subscription ID?"},
+			Prompt:    &survey.Input{Message: "Azure subscription ID? (plain or base64)"},
 			Validate:  makeValidator("required"),
-			Transform: survey.TransformString(base64String), // todo don't transform if it's base64 already
+			Transform: survey.TransformString(coerceBase64String),
 		},
 		{
 			Name:      "ClientID",
-			Prompt:    &survey.Input{Message: "Azure client ID?"},
+			Prompt:    &survey.Input{Message: "Azure client ID? (plain or base64)"},
 			Validate:  makeValidator("required"),
-			Transform: survey.TransformString(base64String), // todo don't transform if it's base64 already
+			Transform: survey.TransformString(coerceBase64String),
 		},
 		{
 			Name:      "ClientSecret",
-			Prompt:    &survey.Input{Message: "Azure client secret?"},
+			Prompt:    &survey.Input{Message: "Azure client secret? (plain or base64)"},
 			Validate:  makeValidator("required"),
-			Transform: survey.TransformString(base64String), // todo don't transform if it's base64 already
+			Transform: survey.TransformString(coerceBase64String),
 		},
 	}
 
@@ -204,21 +204,21 @@ func (d *dnsCredentialsOSDesignate) parseCredentials() {
 	qs := []*survey.Question{
 		{
 			Name:      "ApplicationCredentialID",
-			Prompt:    &survey.Input{Message: "Application Credential ID?"},
+			Prompt:    &survey.Input{Message: "Application Credential ID? (plain or base64)"},
 			Validate:  makeValidator("required"),
-			Transform: survey.TransformString(base64String), // todo don't transform if it's base64 already
+			Transform: survey.TransformString(coerceBase64String),
 		},
 		{
 			Name:      "ApplicationCredentialSecret",
-			Prompt:    &survey.Input{Message: "Application Credential Secret?"},
+			Prompt:    &survey.Input{Message: "Application Credential Secret? (plain or base64)"},
 			Validate:  makeValidator("required"),
-			Transform: survey.TransformString(base64String), // todo don't transform if it's base64 already
+			Transform: survey.TransformString(coerceBase64String),
 		},
 		{
 			Name:      "AuthURL",
-			Prompt:    &survey.Input{Message: "AuthURL?"},
+			Prompt:    &survey.Input{Message: "AuthURL? (plain or base64)"},
 			Validate:  makeValidator("required,url"),
-			Transform: survey.TransformString(base64String), // todo don't transform if it's base64 already
+			Transform: survey.TransformString(coerceBase64String),
 		},
 	}
 
@@ -230,15 +230,15 @@ func (d *dnsCredentialsAWS53) parseCredentials() {
 	qs := []*survey.Question{
 		{
 			Name:      "AccessKeyID",
-			Prompt:    &survey.Input{Message: "Access Key ID?"},
+			Prompt:    &survey.Input{Message: "Access Key ID? (plain or base64)"},
 			Validate:  makeValidator("required"),
-			Transform: survey.TransformString(base64String), // todo don't transform if it's base64 already
+			Transform: survey.TransformString(coerceBase64String),
 		},
 		{
 			Name:      "SecretAccessKey",
-			Prompt:    &survey.Input{Message: "Secret Access Key?"},
+			Prompt:    &survey.Input{Message: "Secret Access Key? (plain or base64)"},
 			Validate:  makeValidator("required"),
-			Transform: survey.TransformString(base64String), // todo don't transform if it's base64 already
+			Transform: survey.TransformString(coerceBase64String),
 		},
 	}
 
