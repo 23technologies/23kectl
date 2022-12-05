@@ -37,8 +37,16 @@ func base64String(s string) string {
 	return bob.String()
 }
 
-var printWarn = color.New(color.FgYellow).PrintlnFunc()
-var printErr = color.New(color.FgRed).PrintlnFunc()
+
+const colorErr = color.FgRed
+const colorHighlight = color.FgBlue
+//const colorSuccess = color.FgGreen
+const colorWarn = color.FgYellow
+
+var printErr = color.New(colorErr).PrintlnFunc()
+var printHighlight = color.New(colorHighlight).PrintlnFunc()
+// var printSuccess = color.New(colorSuccess).PrintlnFunc()
+var printWarn = color.New(colorWarn).PrintlnFunc()
 
 // list23keTag ...
 func list23keTags(publicKeys *ssh.PublicKeys) ([]string, error) {
