@@ -7,7 +7,7 @@ type: Opaque
 stringData:
   values.yaml: |
     staticPasswords:
-    - email: {{ .EmailAddress }}
-      hash: {{ .AdminPassword }}
+    - email: {{ .Admin.Email }}
+      hash: {{ .Admin.Password }}
       username: "admin"
       userID: "08a8684b-db88-4b73-90a9-3cd1661f5466"

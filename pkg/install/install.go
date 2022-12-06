@@ -3,9 +3,11 @@ package install
 import (
 	"context"
 	"fmt"
-	"github.com/fatih/color"
 	"net"
 	"strings"
+
+	"github.com/fatih/color"
+	"github.com/spf13/viper"
 
 	"github.com/23technologies/23kectl/pkg/utils"
 
@@ -31,12 +33,12 @@ func Install(kubeconfig string, keConfiguration *KeConfig) {
 
 	installFlux(kubeClient, kubeconfigArgs, kubeclientOptions)
 
-	completeKeConfig(keConfiguration, kubeClient)
-	queryConfig(keConfiguration)
-	// enable the provider extensions needed for a minimal setup
-	keConfiguration.ExtensionsConfig = make(extensionsConfig)
-	keConfiguration.ExtensionsConfig["provider-"+keConfiguration.BaseCluster.Provider] = map[string]bool{"enabled": true}
-	keConfiguration.ExtensionsConfig[dnsProviderToProvider[keConfiguration.DomainConfig.Provider]] = map[string]bool{"enabled": true}
+	completeKeConfig(kubeClient)
+	viper.Unmarshal(keConfiguration)
+	viper.WriteConfig()
+
+	queryAdminConfig()
+	queryBaseClusterConfig()
 
 	// Generate the needed deploy keys
 	fmt.Println("Generating 23ke deploy key")
@@ -53,13 +55,19 @@ Depending on your relationship with 23T, 23T will come up with a pricing model f
 	publicKeysConfig, err := generateDeployKey(kubeClient, "23ke-config-key", keConfiguration.GitRepo)
 	_panic(err)
 
-	create23keConfigSecret(keConfiguration, kubeClient)
+	create23keConfigSecret(kubeClient)
 
-	installVPACRDs(keConfiguration, kubeconfigArgs, kubeclientOptions)
+	installVPACRDs(kubeconfigArgs, kubeclientOptions)
 
 	createGitRepositories(kubeClient)
 
 	createKustomizations(kubeClient)
+
+	// enable the provider extensions needed for a minimal setup
+	viper.Set("provider-" + viper.GetString("baseCluster.provider") + ".enabled", true)
+	viper.Set(dnsProviderToProvider[viper.GetString("domainConfig.provider") + ".enabled"], true)
+	viper.WriteConfig()
+	viper.Unmarshal(keConfiguration)
 
 	err = updateConfigRepo(*publicKeysConfig)
 	_panic(err)
@@ -69,25 +77,18 @@ Depending on your relationship with 23T, 23T will come up with a pricing model f
 	fmt.Println("")
 	fmt.Println("")
 	fmt.Println("Awesome. Your gardener installation should be up within 10 minutes.")
-	fmt.Printf("Once it's done you can login as %s.\n", color.BlueString(keConfiguration.EmailAddress))
+	fmt.Printf("Once it's done you can login as %s.\n", color.BlueString(keConfiguration.Admin.Email))
 	fmt.Printf("Go kill some time by eagerly pressing F5 on https://dashboard.%s\n", color.BlueString(keConfiguration.DomainConfig.Domain))
 }
 
-func completeKeConfig(config *KeConfig, kubeClient client.WithWatch) {
-	if strings.TrimSpace(config.Dashboard.SessionSecret) == "" {
-		config.Dashboard.SessionSecret = randHex(20)
-	}
-	if strings.TrimSpace(config.Dashboard.ClientSecret) == "" {
-		config.Dashboard.ClientSecret = randHex(20)
-	}
-	if strings.TrimSpace(config.KubeApiServer.BasicAuthPassword) == "" {
-		config.KubeApiServer.BasicAuthPassword = randHex(20)
-	}
-	if strings.TrimSpace(config.ClusterIdentity) == "" {
-		config.ClusterIdentity = "garden-cluster-" + randHex(5) + "-identity"
-	}
+func completeKeConfig(kubeClient client.WithWatch) {
 
-	if strings.TrimSpace(config.Gardenlet.SeedPodCidr) == "" {
+	viper.SetDefault("dashboard.sessionSecret", randHex(20))
+	viper.SetDefault("dashboard.clientSecret", randHex(20))
+	viper.SetDefault("kubeApiServer.basicAuthPassword", randHex(20))
+	viper.SetDefault("clusteridentity", "garden-cluster-" + randHex(5) + "-identity")
+
+	if !viper.IsSet("gardenlet.seedPodCidr") {
 		// We assume that either calico or cilium are used as CNI
 		// Therefore, we search for an ippool with name "default-ipv4-ippool" for the calico case.
 		// In the cilium case, we search for the configmap "cilium-config" in the kube-system namespace
@@ -104,7 +105,7 @@ func completeKeConfig(config *KeConfig, kubeClient client.WithWatch) {
 			Name:      "default-ipv4-ippool",
 		}, &ipPool)
 		if err == nil {
-			config.Gardenlet.SeedPodCidr = ipPool.Object["spec"].(map[string]interface{})["cidr"].(string)
+			viper.Set("gardenlet.SeedPodCidr",ipPool.Object["spec"].(map[string]interface{})["cidr"].(string))
 		} else {
 
 			ciliumConfig := corev1.ConfigMap{}
@@ -116,11 +117,11 @@ func completeKeConfig(config *KeConfig, kubeClient client.WithWatch) {
 				fmt.Println("I could not find the cilium-config configmap in your kube-systemnamespace")
 				panic(err)
 			}
-			config.Gardenlet.SeedPodCidr = ciliumConfig.Data["cluster-pool-ipv4-cidr"]
+			viper.Set("gardenlet.seedPodCidr", ciliumConfig.Data["cluster-pool-ipv4-cidr"])
 		}
 	}
 
-	if strings.TrimSpace(config.Gardenlet.SeedServiceCidr) == "" {
+	if !viper.IsSet("gardenlet.seedServiceCidr") {
 		dummySvc := &corev1.Service{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "dummy",
@@ -132,11 +133,11 @@ func completeKeConfig(config *KeConfig, kubeClient client.WithWatch) {
 			},
 		}
 		dummyErr := kubeClient.Create(context.Background(), dummySvc)
-		config.Gardenlet.SeedServiceCidr = strings.SplitAfter(dummyErr.Error(), "The range of valid IPs is ")[1]
+		viper.Set("gardenlet.seedServiceCidr",strings.SplitAfter(dummyErr.Error(), "The range of valid IPs is ")[1])
 	}
 
-	if strings.TrimSpace(config.Gardener.ClusterIP) == "" {
-		clusterIp, ipnet, _ := net.ParseCIDR(config.Gardenlet.SeedServiceCidr)
+	if !viper.IsSet("gardener.clusterIP") {
+		clusterIp, ipnet, _ := net.ParseCIDR(viper.GetString("gardenlet.seedServiceCidr"))
 
 		clusterIp[len(clusterIp)-2] += 1
 		clusterIp[len(clusterIp)-1] += 1
@@ -144,6 +145,6 @@ func completeKeConfig(config *KeConfig, kubeClient client.WithWatch) {
 		if !ipnet.Contains(clusterIp) {
 			panic("Your cluster ip is out of the service IP range")
 		}
-		config.Gardener.ClusterIP = clusterIp.String()
+		viper.Set("gardener.clusterIP", clusterIp.String())
 	}
 }

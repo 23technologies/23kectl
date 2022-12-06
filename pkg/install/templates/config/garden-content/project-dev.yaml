@@ -17,6 +17,6 @@ spec:
   owner:
     apiGroup: rbac.authorization.k8s.io
     kind: User
-    name: {{ .EmailAddress }}
+    name: {{ .Admin.Email }}
   members: []
   namespace: garden-dev

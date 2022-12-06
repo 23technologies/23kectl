@@ -4,8 +4,7 @@ type KeConfig struct {
 	Version          string              `yaml:"version"`
 	GitRepo          string              `yaml:"gitrepo"`
 	BaseCluster      baseClusterConfig   `yaml:"baseCluster"`
-	EmailAddress     string              `yaml:"emailAddress"`
-	AdminPassword    string              `yaml:"adminPassword"`
+	Admin            admin               `yaml:"admin"`
 	ClusterIdentity  string              `yaml:"clusterIdentity"`
 	Gardener         gardenerConfig      `yaml:"gardener"`
 	Gardenlet        gardenletConfig     `yaml:"gardenlet"`
@@ -14,6 +13,11 @@ type KeConfig struct {
 	Issuer           issuerConfig        `yaml:"issuer"`
 	DomainConfig     domainConfiguration `yaml:"domainConfig,omitempty"`
 	ExtensionsConfig extensionsConfig    `yaml:"extensions"`
+}
+
+type admin struct {
+	Email    string `yaml:"email"`
+	Password string `yaml:"password"`
 }
 
 type baseClusterConfig struct {

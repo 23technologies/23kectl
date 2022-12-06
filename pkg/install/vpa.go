@@ -3,14 +3,16 @@ package install
 import (
 	"context"
 	"fmt"
+	"path"
+
 	"github.com/23technologies/23kectl/pkg/utils"
 	runclient "github.com/fluxcd/pkg/runtime/client"
+	"github.com/spf13/viper"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
-	"path"
 )
 
-func installVPACRDs(keConfiguration *KeConfig, kubeconfigArgs *genericclioptions.ConfigFlags, kubeclientOptions *runclient.Options) error {
-	if *keConfiguration.BaseCluster.HasVerticalPodAutoscaler {
+func installVPACRDs(kubeconfigArgs *genericclioptions.ConfigFlags, kubeclientOptions *runclient.Options) error {
+	if !viper.GetBool("baseCluster.hasVerticalPodAutoscaler") {
 		return nil
 	}
 

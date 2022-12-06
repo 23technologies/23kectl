@@ -3,10 +3,12 @@ package install
 import (
 	"errors"
 	"fmt"
+	"os"
+
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/AlecAivazis/survey/v2/terminal"
+	"github.com/spf13/viper"
 	"golang.org/x/crypto/bcrypt"
-	"os"
 )
 
 func handleErr(err error) {
@@ -18,94 +20,80 @@ func handleErr(err error) {
 	}
 }
 
-func queryConfig(config *KeConfig) {
+// queryAdminConfig ...
+func queryAdminConfig()  {
 	var err error
 	var prompt survey.Prompt
 
-	// todo show available versions (create secret first!)
-	if config.Version == "" {
-		prompt = &survey.Input{
-			Message: "Which version of 23ke would you like to install (should match a git tag)?",
-		}
-		err = survey.AskOne(prompt, &config.Version, withValidator("required"))
-		handleErr(err)
-	}
-
-	// todo explain to user. what's this for?
-	if config.EmailAddress == "" {
+	if !viper.IsSet("admin.email") {
 		prompt = &survey.Input{
 			Message: "Please enter your email address",
 		}
-		err = survey.AskOne(prompt, &config.EmailAddress, withValidator("required,email"))
+		var queryResult string
+		err = survey.AskOne(prompt, &queryResult, withValidator("required,email"))
 		handleErr(err)
+		viper.Set("admin.email", queryResult)
+		viper.WriteConfig()
 	}
 
-	// todo explain to user. what's this for?
-	if config.Issuer.Acme.Email == "" {
-		prompt = &survey.Input{
-			Message: "Please enter your email address for acme certificate generation",
-			Default: config.EmailAddress,
-		}
-		err = survey.AskOne(prompt, &config.Issuer.Acme.Email, withValidator("required,email"))
-		handleErr(err)
-	}
-	// todo move right after user emailaddress
-	// todo explain to user. what's this for?
-	if config.AdminPassword == "" {
-		var plainPassword string
-
+	if !viper.IsSet("admin.password") {
 		prompt = &survey.Password{
 			Message: "Please enter the administrator password to use",
 		}
-		err = survey.AskOne(prompt, &plainPassword, withValidator("required"))
+		var queryResult string
+		err = survey.AskOne(prompt, &queryResult, withValidator("required"))
 		handleErr(err)
 
-		hash, err := bcrypt.GenerateFromPassword(([]byte)(plainPassword), 10)
-		config.AdminPassword = string(hash)
+		hash, err := bcrypt.GenerateFromPassword(([]byte)(queryResult), 10)
 		handleErr(err)
+		viper.Set("admin.password", string(hash))
+		viper.WriteConfig()
 	}
+}
+
+func queryBaseClusterConfig() {
+	var err error
+	var prompt survey.Prompt
 
 	// todo explain to user. what's this for?
-	if config.GitRepo == "" {
-		prompt = &survey.Input{
-			// todo allow form git@github.com:User/Repo.git and transform it to url form.
-			// todo don't allow http url
-			Message: "Please enter your git repository remote, e.g. ssh://git@github.com/User/Repo.git",
-		}
-		err = survey.AskOne(prompt, &config.GitRepo, withValidator("required,url"))
-		handleErr(err)
-	}
-
-	// todo explain to user. what's this for?
-	if config.BaseCluster.Provider == "" {
+	if !viper.IsSet("baseCluster.provider") {
 		prompt = &survey.Select{
 			Message: "Select the provider of your base cluster",
 			Options: []string{"hcloud", "azure", "aws", "openstack"},
 		}
-		err = survey.AskOne(prompt, &config.BaseCluster.Provider, withValidator("required"))
+		var queryResult string
+		err = survey.AskOne(prompt, &queryResult, withValidator("required"))
 		handleErr(err)
+		viper.Set("baseCluster.provider", queryResult)
+		viper.WriteConfig()
 	}
 
-	if config.BaseCluster.Region == "" {
+	if !viper.IsSet("baseCluster.Region") {
 		prompt = &survey.Input{
 			Message: "Please enter the region of your base cluster",
 		}
-		err = survey.AskOne(prompt, &config.BaseCluster.Region, withValidator("required"))
+		var queryResult string
+		err = survey.AskOne(prompt, &queryResult, withValidator("required"))
 		handleErr(err)
+		viper.Set("baseCluster.region", queryResult)
+		viper.WriteConfig()
 	}
 
 	// todo explain to user. document where to find it on supported providers
-	if config.BaseCluster.NodeCidr == "" {
+	if !viper.IsSet("baseCluster.nodeCidr") {
 		prompt = &survey.Input{
 			Message: "Please enter the node CIDR of your base cluster in the form: x.x.x.x/y",
 		}
-		err = survey.AskOne(prompt, &config.BaseCluster.NodeCidr, withValidator("required,cidr"))
+		var queryResult string
+		err = survey.AskOne(prompt, &queryResult, withValidator("required,cidr"))
 		handleErr(err)
+		viper.Set("baseCluster.nodeCidr", queryResult)
 	}
-	config.Gardenlet.SeedNodeCidr = config.BaseCluster.NodeCidr
+	viper.Set("gardenlet.seedNodeCidr", viper.GetString("baseCluster.nodeCidr"))
+	viper.WriteConfig()
 
 	// todo explain to user. what does "I don't know" imply?
-	if config.BaseCluster.HasVerticalPodAutoscaler == nil {
+	if !viper.IsSet("baseCluster.hasVerticalPodAutoscaler") {
 		const (
 			yes       = "Yes"
 			no        = "No"
@@ -117,14 +105,14 @@ func queryConfig(config *KeConfig) {
 			Options: []string{yes, no, iDontKnow},
 		}
 
-		var answer string
+		var queryResult string
 
-		err = survey.AskOne(prompt, &answer)
+		err = survey.AskOne(prompt, &queryResult)
 		handleErr(err)
 
 		var hasVerticalPodAutoscaler bool
 
-		switch answer {
+		switch queryResult {
 		case yes:
 			hasVerticalPodAutoscaler = true
 		case no:
@@ -132,16 +120,15 @@ func queryConfig(config *KeConfig) {
 		case iDontKnow:
 			hasVerticalPodAutoscaler = false
 
-			printWarn(`A Vertical Pod Autoscaler will be deployed. If the base cluster already provides one, both may keep reversing the other one's changes. Gardener will work but you'll see lots of pod restarts. Not recommended for production use.`)
+			printWarn(`A Vertical Pod Autoscaler will be deployed.
+If the base cluster already provides one, both may keep reversing the other one's changes.
+Gardener will work but you'll see lots of pod restarts. Not recommended for production use.`)
 			pressEnterToContinue()
 		}
-
-		config.BaseCluster.HasVerticalPodAutoscaler = &hasVerticalPodAutoscaler
+		viper.Set("baseCluster.hasVerticalPodAutoscaler", hasVerticalPodAutoscaler)
+		viper.WriteConfig()
 	}
 
-	if config.DomainConfig.Domain == "" || config.DomainConfig.Provider == "" {
-		config.DomainConfig = queryDomainConfig()
-	}
 
 }
 
@@ -249,3 +236,4 @@ func (d *dnsCredentialsAWS53) parseCredentials() {
 func withValidator(tag string) survey.AskOpt {
 	return survey.WithValidator(makeValidator(tag))
 }
+

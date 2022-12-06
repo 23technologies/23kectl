@@ -8,13 +8,13 @@ stringData:
   values.yaml: |
     clusterIdentity: {{ .ClusterIdentity }}
     dashboard:
-      clientSecret: {{ .Dashboard.ClientSecret }} 
+      clientSecret: {{ .Dashboard.ClientSecret }}
       sessionSecret: {{ .Dashboard.SessionSecret }}
     kubeApiServer:
       basicAuthPassword: {{ .KubeApiServer.BasicAuthPassword }}
     issuer:
       acme:
-        email: {{ .EmailAddress }}
+        email: {{ .issuer.acme.email }}
         server: https://acme-staging-v02.api.letsencrypt.org/directory
       ca: |
         -----BEGIN CERTIFICATE-----
