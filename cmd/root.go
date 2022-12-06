@@ -1,6 +1,5 @@
 /*
 Copyright © 2022 NAME HERE <EMAIL ADDRESS>
-
 */
 package cmd
 
@@ -45,7 +44,7 @@ func init() {
 	// Cobra supports persistent flags, which, if defined here,
 	// will be global for your application.
 
-	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.23kectl.yaml)")
+	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "config.yaml", "config file")
 
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.

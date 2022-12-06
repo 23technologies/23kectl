@@ -1,12 +1,9 @@
 /*
 Copyright © 2022 NAME HERE <EMAIL ADDRESS>
-
 */
 package cmd
 
 import (
-	"fmt"
-
 	"github.com/23technologies/23kectl/pkg/install"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -23,19 +20,18 @@ Cobra is a CLI library for Go that empowers applications.
 This application is a tool to generate the needed files
 to quickly create a Cobra application.`,
 	Run: func(cmd *cobra.Command, args []string) {
+		config := install.KeConfig{}
+		viper.ReadInConfig()
+		err := viper.Unmarshal(&config)
+		if err != nil {
+			panic(err)
+		}
 
-		viper.Debug()
-		
-		kubeConfig := viper.GetString("KUBECONFIG")
-		if kubeConfig == "" {
-			kubeConfig = viper.GetString("kubeconfig")
+		kubeConfig, err := cmd.Flags().GetString("kubeconfig")
+		if err != nil {
+			panic(err)
 		}
-		if kubeConfig == "" {
-			fmt.Println("A kubeconfig has to be set")
-			return
-		}
-		
-		install.Install(kubeConfig)
+		install.Install(kubeConfig, &config)
 	},
 }
 
@@ -47,7 +43,6 @@ func init() {
 	// Cobra supports Persistent Flags which will work for this command
 	// and all subcommands, e.
 	installCmd.PersistentFlags().String("kubeconfig", "", "The KUBECONFIG of your base cluster")
-  viper.BindPFlag("kubeconfig", installCmd.PersistentFlags().Lookup("kubeconfig"))
 
 	// Cobra supports local flags which will only run when this command
 	// is called directly, e.g.:
