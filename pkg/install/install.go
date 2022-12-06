@@ -57,11 +57,11 @@ Depending on your relationship with 23T, 23T will come up with a pricing model f
 
 	installVPACRDs(keConfiguration, kubeconfigArgs, kubeclientOptions)
 
-	createGitRepositories(kubeClient, *keConfiguration)
+	createGitRepositories(kubeClient)
 
 	createKustomizations(kubeClient)
 
-	err = updateConfigRepo(keConfiguration, *publicKeysConfig)
+	err = updateConfigRepo(*publicKeysConfig)
 	_panic(err)
 
 	// todo: show some kind of progress bar

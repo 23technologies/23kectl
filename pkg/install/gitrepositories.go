@@ -12,13 +12,16 @@ import (
 	"github.com/go-git/go-git/v5/plumbing/transport"
 	"github.com/go-git/go-git/v5/plumbing/transport/ssh"
 	"github.com/go-git/go-git/v5/storage/memory"
+	"github.com/spf13/viper"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"time"
 )
 
-func createGitRepositories(kubeClient client.WithWatch, keConfiguration KeConfig) {
+func createGitRepositories(kubeClient client.WithWatch) {
 	var err error
+
+	tag := viper.GetString("version")
 
 	gitrepo23ke := sourcecontrollerv1beta2.GitRepository{
 		TypeMeta: metav1.TypeMeta{
@@ -33,7 +36,7 @@ func createGitRepositories(kubeClient client.WithWatch, keConfiguration KeConfig
 			URL:       _23KERepoURI,
 			SecretRef: &meta.LocalObjectReference{Name: "23ke-key"},
 			Interval:  metav1.Duration{Duration: time.Minute},
-			Reference: &sourcecontrollerv1beta2.GitRepositoryRef{Tag: keConfiguration.Version},
+			Reference: &sourcecontrollerv1beta2.GitRepositoryRef{Tag: tag},
 		},
 		Status: sourcecontrollerv1beta2.GitRepositoryStatus{},
 	}
@@ -42,6 +45,8 @@ func createGitRepositories(kubeClient client.WithWatch, keConfiguration KeConfig
 	if err != nil {
 		printErr(err)
 	}
+
+	gitRepo := viper.GetString("gitRepo")
 
 	gitrepo23keconfig := sourcecontrollerv1beta2.GitRepository{
 		TypeMeta: metav1.TypeMeta{
@@ -53,7 +58,7 @@ func createGitRepositories(kubeClient client.WithWatch, keConfiguration KeConfig
 			Namespace: "flux-system",
 		},
 		Spec: sourcecontrollerv1beta2.GitRepositorySpec{
-			URL:       keConfiguration.GitRepo,
+			URL:       gitRepo,
 			SecretRef: &meta.LocalObjectReference{Name: "23ke-config-key"},
 			Interval:  metav1.Duration{Duration: time.Minute},
 			Reference: &sourcecontrollerv1beta2.GitRepositoryRef{Branch: "main"}, // todo ask user for branch
@@ -67,7 +72,9 @@ func createGitRepositories(kubeClient client.WithWatch, keConfiguration KeConfig
 	}
 }
 
-func updateConfigRepo(keConfig *KeConfig, publicKeys ssh.PublicKeys) error {
+func updateConfigRepo(publicKeys ssh.PublicKeys) error {
+	gitRepo := viper.GetString("gitRepo")
+
 	var err error
 	workTreeFs := memfs.New()
 
@@ -75,7 +82,7 @@ func updateConfigRepo(keConfig *KeConfig, publicKeys ssh.PublicKeys) error {
 	fmt.Printf("Cloning config repo to memory\n")
 	repository, err := git.Clone(memory.NewStorage(), workTreeFs, &git.CloneOptions{
 		Auth: &publicKeys,
-		URL:  keConfig.GitRepo,
+		URL:  gitRepo,
 	})
 	if err != nil && !errors.Is(err, transport.ErrEmptyRemoteRepository) {
 		panic(err)
@@ -92,7 +99,8 @@ func updateConfigRepo(keConfig *KeConfig, publicKeys ssh.PublicKeys) error {
 	}
 
 	fmt.Printf("Writing new config\n")
-	err = writeConfigDir(workTreeFs, ".", keConfig)
+
+	err = writeConfigDir(workTreeFs, ".")
 	if err != nil {
 		printErr(err)
 	}

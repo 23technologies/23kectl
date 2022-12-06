@@ -149,8 +149,8 @@ func getConfigTemplate() *template.Template {
 	return configTemplate
 }
 
-func writeConfigDir(filesystem billy.Filesystem, gitRoot string, keConfig *KeConfig) error {
-	// todo: wipe gitRoot to account for deleted files
+func writeConfigDir(filesystem billy.Filesystem, gitRoot string) error {
+	keConfig := getKeConfig()
 
 	for _, tpl := range getConfigTemplate().Templates() {
 		name := tpl.Name()

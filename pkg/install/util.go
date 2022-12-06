@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"github.com/go-playground/validator/v10"
+	"github.com/spf13/viper"
 	"sort"
 	"strings"
 
@@ -39,7 +40,7 @@ func coerceBase64String(s string) string {
 	}
 }
 
-func isBase64String ( s string ) bool {
+func isBase64String(s string) bool {
 	err := validator.New().Var(s, "base64")
 	return err == nil
 }
@@ -53,11 +54,13 @@ func base64String(s string) string {
 
 const colorErr = color.FgRed
 const colorHighlight = color.FgBlue
-//const colorSuccess = color.FgGreen
+
+// const colorSuccess = color.FgGreen
 const colorWarn = color.FgYellow
 
 var printErr = color.New(colorErr).PrintlnFunc()
 var printHighlight = color.New(colorHighlight).PrintlnFunc()
+
 // var printSuccess = color.New(colorSuccess).PrintlnFunc()
 var printWarn = color.New(colorWarn).PrintlnFunc()
 
@@ -108,3 +111,14 @@ func randHex(bytes int) string {
 	return hex.EncodeToString(byteArr)
 }
 
+func getKeConfig() *KeConfig {
+	var keConfig *KeConfig
+
+	err := viper.Unmarshal(keConfig)
+
+	if err != nil {
+		panic(err)
+	}
+
+	return keConfig
+}
