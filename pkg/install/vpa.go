@@ -12,7 +12,7 @@ import (
 )
 
 func installVPACRDs(kubeconfigArgs *genericclioptions.ConfigFlags, kubeclientOptions *runclient.Options) error {
-	if !viper.GetBool("baseCluster.hasVerticalPodAutoscaler") {
+	if viper.GetBool("baseCluster.hasVerticalPodAutoscaler") {
 		return nil
 	}
 

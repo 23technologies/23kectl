@@ -4,6 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
+
+	"github.com/AlecAivazis/survey/v2"
 	"github.com/fluxcd/pkg/apis/meta"
 	sourcecontrollerv1beta2 "github.com/fluxcd/source-controller/api/v1beta2"
 	"github.com/go-git/go-billy/v5/memfs"
@@ -15,11 +18,24 @@ import (
 	"github.com/spf13/viper"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"time"
 )
 
-func createGitRepositories(kubeClient client.WithWatch) {
+func createGitRepositories(kubeClient client.WithWatch, keys *ssh.PublicKeys) {
 	var err error
+
+	if !viper.IsSet("version") {
+		tags, err := list23keTags(keys)
+		_panic(err)
+		prompt := &survey.Select{
+			Message: "Select the 23ke version you want to install",
+			Options: tags,
+		}
+		var queryResult string
+		err = survey.AskOne(prompt, &queryResult, withValidator("required"))
+		handleErr(err)
+		viper.Set("version", queryResult)
+		viper.WriteConfig()
+	}
 
 	tag := viper.GetString("version")
 
@@ -46,7 +62,8 @@ func createGitRepositories(kubeClient client.WithWatch) {
 		printErr(err)
 	}
 
-	gitRepo := viper.GetString("gitRepo")
+	gitRepoUrl := viper.GetString("admin.gitrepourl")
+	gitRepoBranch := viper.GetString("admin.gitrepobranch")
 
 	gitrepo23keconfig := sourcecontrollerv1beta2.GitRepository{
 		TypeMeta: metav1.TypeMeta{
@@ -58,10 +75,10 @@ func createGitRepositories(kubeClient client.WithWatch) {
 			Namespace: "flux-system",
 		},
 		Spec: sourcecontrollerv1beta2.GitRepositorySpec{
-			URL:       gitRepo,
+			URL:       gitRepoUrl,
 			SecretRef: &meta.LocalObjectReference{Name: "23ke-config-key"},
 			Interval:  metav1.Duration{Duration: time.Minute},
-			Reference: &sourcecontrollerv1beta2.GitRepositoryRef{Branch: "main"}, // todo ask user for branch
+			Reference: &sourcecontrollerv1beta2.GitRepositoryRef{Branch: gitRepoBranch},
 		},
 		Status: sourcecontrollerv1beta2.GitRepositoryStatus{},
 	}
@@ -73,7 +90,7 @@ func createGitRepositories(kubeClient client.WithWatch) {
 }
 
 func updateConfigRepo(publicKeys ssh.PublicKeys) error {
-	gitRepo := viper.GetString("gitRepo")
+	gitRepo := viper.GetString("admin.gitrepourl")
 
 	var err error
 	workTreeFs := memfs.New()

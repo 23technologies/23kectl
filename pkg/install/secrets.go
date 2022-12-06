@@ -27,8 +27,10 @@ func create23keConfigSecret(kubeClient client.WithWatch) {
 		handleErr(err)
 	}
 
-	viper.Set("domainConfig", queryDomainConfig())
-	viper.WriteConfig()
+	if !viper.IsSet("domainConfig") {
+		viper.Set("domainConfig", queryDomainConfig())
+		viper.WriteConfig()
+	}
 	
 	
 	fmt.Println("Creating '23ke-config' secret")
@@ -39,9 +41,7 @@ func create23keConfigSecret(kubeClient client.WithWatch) {
 		panic(err)
 	}
 
-	var keConfig *KeConfig
-	viper.Unmarshal(keConfig)
-	err = getLocalTemplate().ExecuteTemplate(file, "23ke-config.yaml", keConfig)
+	err = getLocalTemplate().ExecuteTemplate(file, "23ke-config.yaml", getKeConfig())
 	file.Close()
 	_panic(err)
 

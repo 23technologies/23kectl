@@ -14,7 +14,7 @@ stringData:
       basicAuthPassword: {{ .KubeApiServer.BasicAuthPassword }}
     issuer:
       acme:
-        email: {{ .issuer.acme.email }}
+        email: {{ .Issuer.Acme.Email }}
         server: https://acme-staging-v02.api.letsencrypt.org/directory
       ca: |
         -----BEGIN CERTIFICATE-----

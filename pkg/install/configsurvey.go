@@ -49,6 +49,32 @@ func queryAdminConfig()  {
 		viper.Set("admin.password", string(hash))
 		viper.WriteConfig()
 	}
+
+	if !viper.IsSet("admin.gitrepourl") {
+		// todo explain to user. what's this for?
+		prompt = &survey.Input{
+			// todo allow form git@github.com:User/Repo.git and transform it to url form.
+			// todo don't allow http url
+			Message: "Please enter your git repository remote, e.g. ssh://git@github.com/User/Repo.git",
+		}
+		var queryResult string
+		err = survey.AskOne(prompt, &queryResult, withValidator("required,url"))
+		handleErr(err)
+		viper.Set("admin.gitrepourl", queryResult)
+		viper.WriteConfig()
+	}
+
+	if !viper.IsSet("admin.gitrepobranch") {
+		prompt = &survey.Input{
+			Message: "Please enter the branch of your gitrepository to use",
+			Default: "main",
+		}
+		var queryResult string
+		err = survey.AskOne(prompt, &queryResult, withValidator("required"))
+		handleErr(err)
+		viper.Set("admin.gitrepobranch", queryResult)
+		viper.WriteConfig()
+	}
 }
 
 func queryBaseClusterConfig() {

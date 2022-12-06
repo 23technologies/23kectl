@@ -85,7 +85,7 @@ func list23keTags(publicKeys *ssh.PublicKeys) ([]string, error) {
 		if ref.Name().IsTag() {
 			v, err := semver.NewVersion(string(ref.Name().Short()))
 			if err != nil {
-				return nil, err
+				continue
 			}
 			versions = append(versions, v)
 		}
@@ -94,15 +94,19 @@ func list23keTags(publicKeys *ssh.PublicKeys) ([]string, error) {
 	sort.Sort(semver.Collection(versions))
 
 	maxMinor := versions[len(versions)-1].Minor()
-	var maxMinorMinus3 uint64
-	if maxMinor <= 3 {
-		maxMinorMinus3 = 0
+	var maxMinorMinus2 uint64
+	if maxMinor <= 2 {
+		maxMinorMinus2 = 0
 	} else {
-		maxMinorMinus3 = maxMinor - 3
+		maxMinorMinus2 = maxMinor - 2
 	}
 
-	versions = slice.Filter(versions, func(v *semver.Version) bool { return v.Minor() >= maxMinorMinus3 })
-	return slice.Map(versions, func(v *semver.Version) string { return v.String() }), nil
+	versions = slice.Filter(versions, func(v *semver.Version) bool { return v.Minor() >= maxMinorMinus2 })
+	// reverse the order of versions in order to list latest version first
+	for i, j := 0, len(versions)-1; i < j; i, j = i+1, j-1 {
+		versions[i], versions[j] = versions[j], versions[i]
+	}
+	return slice.Map(versions, func(v *semver.Version) string { return "v" + v.String() }), nil
 }
 
 func randHex(bytes int) string {
@@ -112,9 +116,18 @@ func randHex(bytes int) string {
 }
 
 func getKeConfig() *KeConfig {
-	var keConfig *KeConfig
+	keConfig := new(KeConfig)
 
 	err := viper.Unmarshal(keConfig)
+
+	credentialsLowerCase := (keConfig.DomainConfig.Credentials).(map[string]interface{})
+	credentialsCorrectCase := make(map[string]string)
+
+	for k, v := range credentialsLowerCase {
+		credentialsCorrectCase[lowerCaseCredsToCreds[k]] = v.(string)
+	}
+
+	keConfig.DomainConfig.Credentials = credentialsCorrectCase
 
 	if err != nil {
 		panic(err)

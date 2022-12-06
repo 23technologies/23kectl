@@ -46,26 +46,25 @@ func Install(kubeconfig string, keConfiguration *KeConfig) {
 Please contact the 23T administrators and ask them to add the key.
 Depending on your relationship with 23T, 23T will come up with a pricing model for you.`)
 	publicKeys23ke, err := generateDeployKey(kubeClient, "23ke-key", _23KERepoURI)
-	_ = publicKeys23ke // todo use
 	_panic(err)
 
 	fmt.Println("Generating 23ke-config deploy key")
 	fmt.Println(`You will need to add this key to your git remote git repository.`)
 	printWarn("This key needs write access!")
-	publicKeysConfig, err := generateDeployKey(kubeClient, "23ke-config-key", keConfiguration.GitRepo)
+	publicKeysConfig, err := generateDeployKey(kubeClient, "23ke-config-key", viper.GetString("admin.gitrepourl"))
 	_panic(err)
 
 	create23keConfigSecret(kubeClient)
 
 	installVPACRDs(kubeconfigArgs, kubeclientOptions)
 
-	createGitRepositories(kubeClient)
+	createGitRepositories(kubeClient, publicKeys23ke)
 
 	createKustomizations(kubeClient)
 
 	// enable the provider extensions needed for a minimal setup
-	viper.Set("provider-" + viper.GetString("baseCluster.provider") + ".enabled", true)
-	viper.Set(dnsProviderToProvider[viper.GetString("domainConfig.provider") + ".enabled"], true)
+	viper.Set("extensionsConfig.provider-" + viper.GetString("baseCluster.provider") + ".enabled", true)
+	viper.Set("extensionsConfig." + dnsProviderToProvider[viper.GetString("domainConfig.provider")] + ".enabled", true)
 	viper.WriteConfig()
 	viper.Unmarshal(keConfiguration)
 
@@ -86,7 +85,7 @@ func completeKeConfig(kubeClient client.WithWatch) {
 	viper.SetDefault("dashboard.sessionSecret", randHex(20))
 	viper.SetDefault("dashboard.clientSecret", randHex(20))
 	viper.SetDefault("kubeApiServer.basicAuthPassword", randHex(20))
-	viper.SetDefault("clusteridentity", "garden-cluster-" + randHex(5) + "-identity")
+	viper.SetDefault("clusterIdentity", "garden-cluster-" + randHex(5) + "-identity")
 
 	if !viper.IsSet("gardenlet.seedPodCidr") {
 		// We assume that either calico or cilium are used as CNI
