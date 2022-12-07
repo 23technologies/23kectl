@@ -117,7 +117,6 @@ func queryBaseClusterConfig() {
 	viper.Set("gardenlet.seedNodeCidr", viper.GetString("baseCluster.nodeCidr"))
 	viper.WriteConfig()
 
-	// todo explain to user. what does "I don't know" imply?
 	if !viper.IsSet("baseCluster.hasVerticalPodAutoscaler") {
 		const (
 			yes       = "Yes"
@@ -128,6 +127,8 @@ func queryBaseClusterConfig() {
 		prompt = &survey.Select{
 			Message: "Does your base cluster provide vertical pod autoscaling (VPA)?",
 			Options: []string{yes, no, iDontKnow},
+			Help: `Depending on your provider and setup, your base cluster may or may not provide this functionality. If it doesn't, we'll install everything necessary for gardener to work.
+Automatically detecting VPA from within the cluster isn't reliable, so if you choose "I don't know" a VPA is installed just in case. You might end up with two autoscalers, which will generally work for evaluation but causes unexpected behavior like very frequent pod restarts`,
 		}
 
 		var queryResult string
