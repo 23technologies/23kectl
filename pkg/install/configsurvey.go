@@ -164,7 +164,9 @@ func queryDomainConfig() domainConfiguration {
 	var prompt survey.Prompt
 
 	prompt = &survey.Input{
-		Message: "Please enter the base (sub)domain of your gardener setup. Gardener components will be available as subdomains of this (e.g dashboard.<gardener.my-company.io>). Has to be configurable through one of the supported DNS providers.",
+		Message: `Please enter the base (sub)domain of your gardener setup.
+Gardener components will be available as subdomains of this (e.g dashboard.<gardener.my-company.io>).
+Has to be configurable through one of the supported DNS providers.`,
 	}
 	err = survey.AskOne(prompt, &domain, withValidator("required,fqdn"))
 	handleErr(err)
