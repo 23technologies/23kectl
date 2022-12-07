@@ -14,9 +14,6 @@ import (
 	"text/template"
 )
 
-var templateDir = "templates"
-var distDir = "dist"
-
 func newDomainConfigAzure(domain string) domainConfiguration {
 	var dnsCredentials dnsCredentialsAzure
 	dnsCredentials.parseCredentials()
@@ -45,16 +42,6 @@ func newDomainAWS53(domain string) domainConfiguration {
 		Provider:    DNS_PROVIDER_AWS_ROUTE_53,
 		Credentials: &dnsCredentials,
 	}
-}
-
-func (d domainConfiguration) marshal() string {
-
-	result, err := yaml.Marshal(d)
-	if err != nil {
-		panic("Error during marshaling")
-	}
-
-	return string(result)
 }
 
 func createDomainConfiguration(domain string, dnsProvider string) (domainConfiguration, error) {
@@ -121,6 +108,11 @@ func getConfigTemplate() *template.Template {
 
 		// We don't use tpl.ParseFS here to keep the folder structure in the template name.
 		err := fs.WalkDir(embedFS, templateRoot, func(path string, d fs.DirEntry, err error) error {
+			if err != nil {
+				fmt.Println(err)
+				return nil
+			}
+
 			if d.IsDir() {
 				return nil
 			}

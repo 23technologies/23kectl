@@ -31,7 +31,8 @@ func Install(kubeconfig string, keConfiguration *KeConfig) {
 	var kubeclientOptions = new(runclient.Options)
 	kubeClient, err := utils.KubeClient(kubeconfigArgs, kubeclientOptions)
 	if err != nil {
-		fmt.Errorf("Error during creation of kubeclient %s", err)
+		err := fmt.Errorf("error during creation of kubeclient %s", err)
+		fmt.Println(err.Error())
 		return
 	}
 

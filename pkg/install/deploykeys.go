@@ -81,7 +81,9 @@ func blockUntilKeyCanRead(repoUrl string, keys *ssh.PublicKeys, pubkey string) {
 			break
 		}
 
-		fmt.Errorf("Make sure that %s can be accessed by this key:\n%s", repoUrl, err )
+		err := fmt.Errorf("make sure that %s can be accessed by this key:\n%s", repoUrl, err)
+		fmt.Println(err.Error())
+
 		printHighlight(strings.TrimSpace(pubkey))
 		pressEnterToContinue()
 	}
