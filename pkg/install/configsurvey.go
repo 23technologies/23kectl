@@ -27,7 +27,8 @@ func queryAdminConfig()  {
 
 	if !viper.IsSet("admin.email") {
 		prompt = &survey.Input{
-			Message: "Please enter your email address",
+			Message: `Please enter your email address.
+This will be the email address to use, when you want to login to the Gardener dashboard.`,
 		}
 		var queryResult string
 		err = survey.AskOne(prompt, &queryResult, withValidator("required,email"))
@@ -38,7 +39,8 @@ func queryAdminConfig()  {
 
 	if !viper.IsSet("admin.password") {
 		prompt = &survey.Password{
-			Message: "Please enter the administrator password to use",
+			Message: `Please enter the administrator password to use.
+This will be the password to use, when you login to the Gardener dashboard.`,
 		}
 		var queryResult string
 		err = survey.AskOne(prompt, &queryResult, withValidator("required"))
@@ -53,7 +55,10 @@ func queryAdminConfig()  {
 	if !viper.IsSet("admin.gitrepourl") {
 		prompt = &survey.Input{
 			Message: "Please enter an ssh git remote in URL form. e.g. ssh://git@github.com/User/Repo.git",
-			Help: `Configuration files are to be stored in this repo. Flux will monitor these files to pick up configuration changes.`,
+			Help: `
+Configuration files are to be stored in this repo.
+Flux will monitor these files to pick up configuration changes.
+`,
 		}
 		var queryResult string
 		err = survey.AskOne(prompt, &queryResult, withValidator("required,url,startswith=ssh://"))
@@ -66,7 +71,10 @@ func queryAdminConfig()  {
 		prompt = &survey.Input{
 			Message: "Please enter the git branch to use. Will be created if it doesn't exist.",
 			Default: "main",
-			Help: `Can be any branch name you want. You can store configuration files for multiple gardeners (e.g. prod, staging, dev) on the same repo by choosing unique branch names for them.`,
+			Help: `
+Can be any branch name you want.
+You can store configuration files for multiple gardeners (e.g. prod, staging, dev) on the same repo by choosing unique branch names for them.
+`,
 		}
 		var queryResult string
 		err = survey.AskOne(prompt, &queryResult, withValidator("required"))
@@ -85,6 +93,10 @@ func queryBaseClusterConfig() {
 		prompt = &survey.Select{
 			Message: "Select the provider of your base cluster",
 			Options: []string{"hcloud", "azure", "aws", "openstack"},
+			Help: `
+Currently, this tools supports the listed providers for base clusters.
+If you feel like this list in incomplete, contact the 23T support.
+`,
 		}
 		var queryResult string
 		err = survey.AskOne(prompt, &queryResult, withValidator("required"))
@@ -96,6 +108,11 @@ func queryBaseClusterConfig() {
 	if !viper.IsSet("baseCluster.Region") {
 		prompt = &survey.Input{
 			Message: "Please enter the region of your base cluster",
+			Help: `
+This is the region your base cluster runs in.
+Generally this is dependent on the provider of your base cluster.
+For clusters hosted on Azure, this could be e.g. germanywestcentral or westeurope.
+`,
 		}
 		var queryResult string
 		err = survey.AskOne(prompt, &queryResult, withValidator("required"))
@@ -108,6 +125,10 @@ func queryBaseClusterConfig() {
 	if !viper.IsSet("baseCluster.nodeCidr") {
 		prompt = &survey.Input{
 			Message: "Please enter the node CIDR of your base cluster in the form: x.x.x.x/y",
+			Help: `
+Gardener will check whether the nodes' ip addresses of your base cluster lie in the specified network.
+Therefore, the node CIDR should match a network that comprises all ip addresses of your nodes.
+`,
 		}
 		var queryResult string
 		err = survey.AskOne(prompt, &queryResult, withValidator("required,cidr"))
@@ -127,8 +148,11 @@ func queryBaseClusterConfig() {
 		prompt = &survey.Select{
 			Message: "Does your base cluster provide vertical pod autoscaling (VPA)?",
 			Options: []string{yes, no, iDontKnow},
-			Help: `Depending on your provider and setup, your base cluster may or may not provide this functionality. If it doesn't, we'll install everything necessary for gardener to work.
-Automatically detecting VPA from within the cluster isn't reliable, so if you choose "I don't know" a VPA is installed just in case. You might end up with two autoscalers, which will generally work for evaluation but causes unexpected behavior like very frequent pod restarts`,
+			Help: `
+Depending on your provider and setup, your base cluster may or may not provide this functionality.
+If it doesn't, we'll install everything necessary for gardener to work.
+Automatically detecting VPA from within the cluster isn't reliable, so if you choose "I don't know" a VPA is installed just in case. You might end up with two autoscalers, which will generally work for evaluation but causes unexpected behavior like very frequent pod restarts
+`,
 		}
 
 		var queryResult string
@@ -166,7 +190,7 @@ func queryDomainConfig() domainConfiguration {
 	prompt = &survey.Input{
 		Message: `Please enter the base (sub)domain of your gardener setup.
 Gardener components will be available as subdomains of this (e.g dashboard.<gardener.my-company.io>).
-Has to be configurable through one of the supported DNS providers.`,
+Note that it has to be delegated to the chosen DNS provider.`,
 	}
 	err = survey.AskOne(prompt, &domain, withValidator("required,fqdn"))
 	handleErr(err)
