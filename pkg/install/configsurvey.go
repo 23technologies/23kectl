@@ -64,8 +64,9 @@ func queryAdminConfig()  {
 
 	if !viper.IsSet("admin.gitrepobranch") {
 		prompt = &survey.Input{
-			Message: "Please enter the branch of your gitrepository to use",
+			Message: "Please enter the git branch to use. Will be created if it doesn't exist.",
 			Default: "main",
+			Help: `Can be any branch name you want. You can store configuration files for multiple gardeners (e.g. prod, staging, dev) on the same repo by choosing unique branch names for them.`,
 		}
 		var queryResult string
 		err = survey.AskOne(prompt, &queryResult, withValidator("required"))
