@@ -1,11 +1,9 @@
 package install
 
 import (
+	"bytes"
 	"context"
 	"fmt"
-	"os"
-	"path"
-
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/spf13/viper"
 	corev1 "k8s.io/api/core/v1"
@@ -32,22 +30,15 @@ func create23keConfigSecret(kubeClient client.WithWatch) {
 		viper.WriteConfig()
 	}
 	
-	
 	fmt.Println("Creating '23ke-config' secret")
-	filePath := path.Join("/tmp", "23ke-config.yaml")
-	file, err := os.OpenFile(filePath, os.O_WRONLY|os.O_CREATE, 0600)
-	if err != nil {
-		file.Close()
-		panic(err)
-	}
-	defer file.Close()
 
-	err = getLocalTemplate().ExecuteTemplate(file, "23ke-config.yaml", getKeConfig())
+	buffer := bytes.Buffer{}
+	err  := getLocalTemplate().ExecuteTemplate(&buffer, "23ke-config.yaml", getKeConfig())
 	_panic(err)
 
+	bytes := buffer.Bytes()
 	_23keConfigSec := corev1.Secret{}
-	tmpByte, err := os.ReadFile(file.Name())
-	k8syaml.Unmarshal(tmpByte, &_23keConfigSec)
+	k8syaml.Unmarshal(bytes, &_23keConfigSec)
 	err = kubeClient.Create(context.Background(), &_23keConfigSec)
 	_panic(err)
 }
