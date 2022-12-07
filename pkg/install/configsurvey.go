@@ -158,14 +158,13 @@ Gardener will work but you'll see lots of pod restarts. Not recommended for prod
 
 }
 
-// todo explain to user. ask for domain after provider configuration to make it clearer what this domain is meant for.
 func queryDomainConfig() domainConfiguration {
 	var err error
 	var domain, provider string
 	var prompt survey.Prompt
 
 	prompt = &survey.Input{
-		Message: "Please enter your domain",
+		Message: "Please enter the base (sub)domain of your gardener setup. Gardener components will be available as subdomains of this (e.g dashboard.<gardener.my-company.io>). Has to be configurable through one of the supported DNS providers.",
 	}
 	err = survey.AskOne(prompt, &domain, withValidator("required,fqdn"))
 	handleErr(err)
