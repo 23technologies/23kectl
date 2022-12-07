@@ -34,7 +34,7 @@ func Install(kubeconfig string, keConfiguration *KeConfig) {
 	installFlux(kubeClient, kubeconfigArgs, kubeclientOptions)
 
 	completeKeConfig(kubeClient)
-	viper.Unmarshal(keConfiguration)
+	UnmarshalKeConfig(keConfiguration)
 	viper.WriteConfig()
 
 	queryAdminConfig()

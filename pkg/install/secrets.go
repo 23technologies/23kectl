@@ -29,7 +29,7 @@ func create23keConfigSecret(kubeClient client.WithWatch) {
 		viper.Set("domainConfig", queryDomainConfig())
 		viper.WriteConfig()
 	}
-
+	
 	fmt.Println("Creating '23ke-config' secret")
 
 	buffer := bytes.Buffer{}
@@ -40,5 +40,8 @@ func create23keConfigSecret(kubeClient client.WithWatch) {
 	_23keConfigSec := corev1.Secret{}
 	k8syaml.Unmarshal(bytes, &_23keConfigSec)
 	err = kubeClient.Create(context.Background(), &_23keConfigSec)
-	_panic(err)
+	if err != nil {
+		err = kubeClient.Update(context.Background(), &_23keConfigSec)
+		_panic(err)
+	}
 }

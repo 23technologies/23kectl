@@ -110,17 +110,3 @@ var dnsProviderToProvider = map[string]string{
 	DNS_PROVIDER_OPENSTACK_DESIGNATE: PROVIDER_OPENSTACK,
 	DNS_PROVIDER_ALICLOUD_DNS:        PROVIDER_ALICLOUD,
 }
-
-var lowerCaseCredsToCreds = map[string]string{
-	"tenantid":       "tenantID",
-	"subscriptionid": "subscriptionID",
-	"clientid":       "clientID",
-	"clientsecret":   "clientSecret",
-
-	"os_application_credential_id":     "OS_APPLICATION_CREDENTIAL_ID",
-	"os_application_credential_secret": "OS_APPLICATION_CREDENTIAL_SECRET",
-	"os_auth_url":                      "OS_AUTH_URL",
-
-	"aws_access_key_id":     "AWS_ACCESS_KEY_ID",
-	"aws_secret_access_key": "AWS_SECRET_ACCESS_KEY",
-}
