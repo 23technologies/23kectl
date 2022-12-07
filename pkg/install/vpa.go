@@ -16,26 +16,18 @@ func installVPACRDs(kubeconfigArgs *genericclioptions.ConfigFlags, kubeclientOpt
 		return nil
 	}
 
-	fmt.Println("Looking for VPA CRDs")
-	// todo check if VPA exists in the cluster
-	exists := false
+	fmt.Println("Creating VPA CRDs")
 
-	if exists {
-		fmt.Println("VPA CRDs already exist")
-	} else {
-		fmt.Println("Creating VPA CRDs")
+	// todo move to kustomization (install from 23ke repo)
+	dirPath := "./pkg/install/base-addons"
+	filePath := path.Join(dirPath, "vpa-v1-crd-gen.yaml")
 
-		// todo embed yaml or get it from the 23ke repo
-		dirPath := "./pkg/install/base-addons"
-		filePath := path.Join(dirPath, "vpa-v1-crd-gen.yaml")
+	result, err := utils.Apply(context.TODO(), kubeconfigArgs, kubeclientOptions, dirPath, filePath)
 
-		result, err := utils.Apply(context.TODO(), kubeconfigArgs, kubeclientOptions, dirPath, filePath)
+	fmt.Println(result)
 
-		fmt.Println(result)
-
-		if err != nil {
-			return err
-		}
+	if err != nil {
+		return err
 	}
 
 	return nil
