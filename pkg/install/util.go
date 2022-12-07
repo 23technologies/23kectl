@@ -5,10 +5,12 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"fmt"
-	"github.com/go-playground/validator/v10"
-	"github.com/spf13/viper"
 	"sort"
 	"strings"
+
+	"github.com/go-playground/validator/v10"
+	"github.com/mitchellh/mapstructure"
+	"github.com/spf13/viper"
 
 	"github.com/fatih/color"
 
@@ -117,21 +119,29 @@ func randHex(bytes int) string {
 
 func getKeConfig() *KeConfig {
 	keConfig := new(KeConfig)
-
-	err := viper.Unmarshal(keConfig)
-
-	credentialsLowerCase := (keConfig.DomainConfig.Credentials).(map[string]interface{})
-	credentialsCorrectCase := make(map[string]string)
-
-	for k, v := range credentialsLowerCase {
-		credentialsCorrectCase[lowerCaseCredsToCreds[k]] = v.(string)
-	}
-
-	keConfig.DomainConfig.Credentials = credentialsCorrectCase
-
-	if err != nil {
-		panic(err)
-	}
-
+	UnmarshalKeConfig(keConfig)
 	return keConfig
+}
+
+// unmarshalKeConfig ...
+func UnmarshalKeConfig(config *KeConfig) {
+
+	err := viper.Unmarshal(config)
+	_panic(err)
+
+	_, ok := (config.DomainConfig.Credentials).(map[string]interface{})
+	if ok {
+		var creds interface{}
+		switch config.DomainConfig.Provider {
+		case DNS_PROVIDER_AZURE_DNS:
+			creds = dnsCredentialsAzure{}
+		case DNS_PROVIDER_OPENSTACK_DESIGNATE:
+			creds = dnsCredentialsOSDesignate{}
+		case DNS_PROVIDER_AWS_ROUTE_53:
+			creds = dnsCredentialsAWS53{}
+		}
+		err = mapstructure.Decode(config.DomainConfig.Credentials, &creds)
+		_panic(err)
+		config.DomainConfig.Credentials = creds
+	}
 }

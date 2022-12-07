@@ -22,10 +22,7 @@ to quickly create a Cobra application.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		config := install.KeConfig{}
 		viper.ReadInConfig()
-		err := viper.Unmarshal(&config)
-		if err != nil {
-			panic(err)
-		}
+		install.UnmarshalKeConfig(&config)
 
 		kubeConfig, err := cmd.Flags().GetString("kubeconfig")
 		if err != nil {

@@ -40,13 +40,14 @@ func create23keConfigSecret(kubeClient client.WithWatch) {
 		file.Close()
 		panic(err)
 	}
+	defer file.Close()
 
 	err = getLocalTemplate().ExecuteTemplate(file, "23ke-config.yaml", getKeConfig())
-	file.Close()
 	_panic(err)
 
 	_23keConfigSec := corev1.Secret{}
 	tmpByte, err := os.ReadFile(file.Name())
 	k8syaml.Unmarshal(tmpByte, &_23keConfigSec)
-	kubeClient.Create(context.Background(), &_23keConfigSec)
+	err = kubeClient.Create(context.Background(), &_23keConfigSec)
+	_panic(err)
 }

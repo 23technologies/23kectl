@@ -3,16 +3,18 @@ package install
 import (
 	"context"
 	"fmt"
+	"net/url"
+	"strings"
+
 	"github.com/fluxcd/flux2/pkg/manifestgen/sourcesecret"
 	"github.com/go-git/go-git/v5"
 	gitconfig "github.com/go-git/go-git/v5/config"
+	"github.com/go-git/go-git/v5/plumbing/transport"
 	"github.com/go-git/go-git/v5/plumbing/transport/ssh"
 	"github.com/go-git/go-git/v5/storage/memory"
 	corev1 "k8s.io/api/core/v1"
-	"net/url"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	k8syaml "sigs.k8s.io/yaml"
-	"strings"
 )
 
 func generateDeployKey(kubeClient client.WithWatch, secretName string, repoUrl string) (*ssh.PublicKeys, error) {
@@ -68,23 +70,24 @@ func generateDeployKey(kubeClient client.WithWatch, secretName string, repoUrl s
 
 		return keys, nil
 	}
-
 }
 
 func blockUntilKeyCanRead(repoUrl string, keys *ssh.PublicKeys, pubkey string) {
+	var err error
 	for {
-		if keyCanRead(repoUrl, keys) {
+		err = keyCanRead(repoUrl, keys)
+		if err == nil {
 			fmt.Println(`Read access granted.`)
 			break
 		}
 
-		fmt.Printf("Make sure that %s can be accessed by this key:\n", repoUrl )
+		fmt.Errorf("Make sure that %s can be accessed by this key:\n%s", repoUrl, err )
 		printHighlight(strings.TrimSpace(pubkey))
 		pressEnterToContinue()
 	}
 }
 
-func keyCanRead(url string, publicKeys *ssh.PublicKeys) bool {
+func keyCanRead(url string, publicKeys *ssh.PublicKeys) error {
 	remote := git.NewRemote(memory.NewStorage(), &gitconfig.RemoteConfig{
 		Name: "origin",
 		URLs: []string{url},
@@ -94,9 +97,8 @@ func keyCanRead(url string, publicKeys *ssh.PublicKeys) bool {
 		Auth: publicKeys,
 	})
 
-	if err != nil {
-		return false
+	if err != nil && err != transport.ErrEmptyRemoteRepository {
+		return err
 	}
-
-	return true
+	return nil
 }
