@@ -51,14 +51,12 @@ func queryAdminConfig()  {
 	}
 
 	if !viper.IsSet("admin.gitrepourl") {
-		// todo explain to user. what's this for?
 		prompt = &survey.Input{
-			// todo allow form git@github.com:User/Repo.git and transform it to url form.
-			// todo don't allow http url
-			Message: "Please enter your git repository remote, e.g. ssh://git@github.com/User/Repo.git",
+			Message: "Please enter an ssh git remote in URL form. e.g. ssh://git@github.com/User/Repo.git",
+			Help: `Configuration files are to be stored in this repo. Flux will monitor these files to pick up configuration changes.`,
 		}
 		var queryResult string
-		err = survey.AskOne(prompt, &queryResult, withValidator("required,url"))
+		err = survey.AskOne(prompt, &queryResult, withValidator("required,url,startswith=ssh://"))
 		handleErr(err)
 		viper.Set("admin.gitrepourl", queryResult)
 		viper.WriteConfig()
