@@ -51,14 +51,12 @@ func queryAdminConfig()  {
 	}
 
 	if !viper.IsSet("admin.gitrepourl") {
-		// todo explain to user. what's this for?
 		prompt = &survey.Input{
-			// todo allow form git@github.com:User/Repo.git and transform it to url form.
-			// todo don't allow http url
-			Message: "Please enter your git repository remote, e.g. ssh://git@github.com/User/Repo.git",
+			Message: "Please enter an ssh git remote in URL form. e.g. ssh://git@github.com/User/Repo.git",
+			Help: `Configuration files are to be stored in this repo. Flux will monitor these files to pick up configuration changes.`,
 		}
 		var queryResult string
-		err = survey.AskOne(prompt, &queryResult, withValidator("required,url"))
+		err = survey.AskOne(prompt, &queryResult, withValidator("required,url,startswith=ssh://"))
 		handleErr(err)
 		viper.Set("admin.gitrepourl", queryResult)
 		viper.WriteConfig()
@@ -66,8 +64,9 @@ func queryAdminConfig()  {
 
 	if !viper.IsSet("admin.gitrepobranch") {
 		prompt = &survey.Input{
-			Message: "Please enter the branch of your gitrepository to use",
+			Message: "Please enter the git branch to use. Will be created if it doesn't exist.",
 			Default: "main",
+			Help: `Can be any branch name you want. You can store configuration files for multiple gardeners (e.g. prod, staging, dev) on the same repo by choosing unique branch names for them.`,
 		}
 		var queryResult string
 		err = survey.AskOne(prompt, &queryResult, withValidator("required"))
@@ -118,7 +117,6 @@ func queryBaseClusterConfig() {
 	viper.Set("gardenlet.seedNodeCidr", viper.GetString("baseCluster.nodeCidr"))
 	viper.WriteConfig()
 
-	// todo explain to user. what does "I don't know" imply?
 	if !viper.IsSet("baseCluster.hasVerticalPodAutoscaler") {
 		const (
 			yes       = "Yes"
@@ -129,6 +127,8 @@ func queryBaseClusterConfig() {
 		prompt = &survey.Select{
 			Message: "Does your base cluster provide vertical pod autoscaling (VPA)?",
 			Options: []string{yes, no, iDontKnow},
+			Help: `Depending on your provider and setup, your base cluster may or may not provide this functionality. If it doesn't, we'll install everything necessary for gardener to work.
+Automatically detecting VPA from within the cluster isn't reliable, so if you choose "I don't know" a VPA is installed just in case. You might end up with two autoscalers, which will generally work for evaluation but causes unexpected behavior like very frequent pod restarts`,
 		}
 
 		var queryResult string
@@ -158,14 +158,13 @@ Gardener will work but you'll see lots of pod restarts. Not recommended for prod
 
 }
 
-// todo explain to user. ask for domain after provider configuration to make it clearer what this domain is meant for.
 func queryDomainConfig() domainConfiguration {
 	var err error
 	var domain, provider string
 	var prompt survey.Prompt
 
 	prompt = &survey.Input{
-		Message: "Please enter your domain",
+		Message: "Please enter the base (sub)domain of your gardener setup. Gardener components will be available as subdomains of this (e.g dashboard.<gardener.my-company.io>). Has to be configurable through one of the supported DNS providers.",
 	}
 	err = survey.AskOne(prompt, &domain, withValidator("required,fqdn"))
 	handleErr(err)

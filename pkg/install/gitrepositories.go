@@ -95,7 +95,6 @@ func updateConfigRepo(publicKeys ssh.PublicKeys) error {
 	var err error
 	workTreeFs := memfs.New()
 
-	// todo catch "empty repo" error
 	fmt.Printf("Cloning config repo to memory\n")
 	repository, err := git.Clone(memory.NewStorage(), workTreeFs, &git.CloneOptions{
 		Auth: &publicKeys,
