@@ -47,7 +47,7 @@ func createGitRepositories(kubeClient client.WithWatch, keys *ssh.PublicKeys) {
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      common.BASE_23KE_GITREPO_NAME,
-			Namespace: "flux-system",
+			Namespace: common.FLUX_NAMESPACE,
 		},
 		Spec: sourcecontrollerv1beta2.GitRepositorySpec{
 			URL:       common.BASE_23KE_GITREPO_URI,
@@ -73,7 +73,7 @@ func createGitRepositories(kubeClient client.WithWatch, keys *ssh.PublicKeys) {
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      common.CONFIG_23KE_GITREPO_NAME,
-			Namespace: "flux-system",
+			Namespace: common.FLUX_NAMESPACE,
 		},
 		Spec: sourcecontrollerv1beta2.GitRepositorySpec{
 			URL:       gitRepoUrl,

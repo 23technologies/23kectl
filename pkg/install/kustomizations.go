@@ -20,7 +20,7 @@ func createKustomizations(kubeClient client.WithWatch) {
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      common.BASE_23KE_KS_NAME,
-			Namespace: "flux-system",
+			Namespace: common.FLUX_NAMESPACE,
 		},
 		Spec: kustomizecontrollerv1beta2.KustomizationSpec{
 			Interval: metav1.Duration{
@@ -45,7 +45,7 @@ func createKustomizations(kubeClient client.WithWatch) {
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      common.CONFIG_KS_NAME,
-			Namespace: "flux-system",
+			Namespace: common.FLUX_NAMESPACE,
 		},
 		Spec: kustomizecontrollerv1beta2.KustomizationSpec{
 			Interval: metav1.Duration{

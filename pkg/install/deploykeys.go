@@ -19,11 +19,9 @@ import (
 )
 
 func generateDeployKey(kubeClient client.WithWatch, secretName string, repoUrl string) (*ssh.PublicKeys, error) {
-	namespace := "flux-system"
-
 	sec := corev1.Secret{}
 	err := kubeClient.Get(context.Background(), client.ObjectKey{
-		Namespace: namespace,
+		Namespace: common.FLUX_NAMESPACE,
 		Name:      secretName,
 	}, &sec)
 	exists := err == nil
@@ -59,7 +57,7 @@ func generateDeployKey(kubeClient client.WithWatch, secretName string, repoUrl s
 		err = k8syaml.Unmarshal([]byte(secManifest.Content), &fluxRepoSecret)
 
 		common.Panic(err)
-		fluxRepoSecret.SetNamespace(namespace)
+		fluxRepoSecret.SetNamespace(common.FLUX_NAMESPACE)
 
 		fmt.Println(`I created an ssh key for you.`)
 
