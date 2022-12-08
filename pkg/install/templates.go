@@ -3,6 +3,7 @@ package install
 import (
 	"embed"
 	"fmt"
+	"github.com/23technologies/23kectl/pkg/common"
 	"io/fs"
 	"os"
 	"path"
@@ -10,7 +11,6 @@ import (
 	"strings"
 	"text/template"
 
-	"github.com/23technologies/23kectl/pkg/constants"
 	"github.com/Masterminds/sprig/v3"
 	"github.com/go-git/go-billy/v5"
 	"gopkg.in/yaml.v3"
@@ -21,7 +21,7 @@ func newDomainConfigAzure(domain string) domainConfiguration {
 	dnsCredentials.parseCredentials()
 	return domainConfiguration{
 		Domain:      domain,
-		Provider:    constants.DNS_PROVIDER_AZURE_DNS,
+		Provider:    common.DNS_PROVIDER_AZURE_DNS,
 		Credentials: &dnsCredentials,
 	}
 }
@@ -31,7 +31,7 @@ func newDomainOSDesignate(domain string) domainConfiguration {
 	dnsCredentials.parseCredentials()
 	return domainConfiguration{
 		Domain:      domain,
-		Provider:    constants.DNS_PROVIDER_OPENSTACK_DESIGNATE,
+		Provider:    common.DNS_PROVIDER_OPENSTACK_DESIGNATE,
 		Credentials: &dnsCredentials,
 	}
 }
@@ -41,7 +41,7 @@ func newDomainAWS53(domain string) domainConfiguration {
 	dnsCredentials.parseCredentials()
 	return domainConfiguration{
 		Domain:      domain,
-		Provider:    constants.DNS_PROVIDER_AWS_ROUTE_53,
+		Provider:    common.DNS_PROVIDER_AWS_ROUTE_53,
 		Credentials: &dnsCredentials,
 	}
 }
@@ -49,11 +49,11 @@ func newDomainAWS53(domain string) domainConfiguration {
 func createDomainConfiguration(domain string, dnsProvider string) (domainConfiguration, error) {
 
 	switch dnsProvider {
-	case constants.DNS_PROVIDER_AZURE_DNS:
+	case common.DNS_PROVIDER_AZURE_DNS:
 		return newDomainConfigAzure(domain), nil
-	case constants.DNS_PROVIDER_OPENSTACK_DESIGNATE:
+	case common.DNS_PROVIDER_OPENSTACK_DESIGNATE:
 		return newDomainOSDesignate(domain), nil
-	case constants.DNS_PROVIDER_AWS_ROUTE_53:
+	case common.DNS_PROVIDER_AWS_ROUTE_53:
 		return newDomainAWS53(domain), nil
 	}
 
@@ -91,7 +91,7 @@ var localTemplate *template.Template
 func getLocalTemplate() *template.Template {
 	if localTemplate == nil {
 		tpl, err := makeTemplate().ParseFS(embedFS, "templates/local/*.yaml")
-		_panic(err)
+		common.Panic(err)
 
 		localTemplate = tpl
 	}
@@ -135,7 +135,7 @@ func getConfigTemplate() *template.Template {
 
 			return nil
 		})
-		_panic(err)
+		common.Panic(err)
 
 		configTemplate = tpl
 	}

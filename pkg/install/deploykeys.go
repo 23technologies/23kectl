@@ -3,6 +3,7 @@ package install
 import (
 	"context"
 	"fmt"
+	"github.com/23technologies/23kectl/pkg/common"
 	"net/url"
 	"strings"
 
@@ -52,12 +53,12 @@ func generateDeployKey(kubeClient client.WithWatch, secretName string, repoUrl s
 
 		// generate the flux source secret manifest and store it as []byte in the shootResources
 		secManifest, err := sourcesecret.Generate(sourceSecOpts)
-		_panic(err)
+		common.Panic(err)
 		// lastly, also deploy the flux source secret into the projectNamespace in the seed cluster
 		// in order to reuse it, when other shoots are created
 		err = k8syaml.Unmarshal([]byte(secManifest.Content), &fluxRepoSecret)
 
-		_panic(err)
+		common.Panic(err)
 		fluxRepoSecret.SetNamespace(namespace)
 
 		fmt.Println(`I created an ssh key for you.`)
@@ -84,8 +85,8 @@ func blockUntilKeyCanRead(repoUrl string, keys *ssh.PublicKeys, pubkey string) {
 		err := fmt.Errorf("make sure that %s can be accessed by this key:\n%s", repoUrl, err)
 		fmt.Println(err.Error())
 
-		printHighlight(strings.TrimSpace(pubkey))
-		pressEnterToContinue()
+		common.PrintHighlight(strings.TrimSpace(pubkey))
+		common.PressEnterToContinue()
 	}
 }
 

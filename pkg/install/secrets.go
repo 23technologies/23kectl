@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"github.com/23technologies/23kectl/pkg/common"
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/spf13/viper"
 	corev1 "k8s.io/api/core/v1"
@@ -29,12 +30,12 @@ func create23keConfigSecret(kubeClient client.WithWatch) {
 		viper.Set("domainConfig", queryDomainConfig())
 		viper.WriteConfig()
 	}
-	
+
 	fmt.Println("Creating '23ke-config' secret")
 
 	buffer := bytes.Buffer{}
-	err  := getLocalTemplate().ExecuteTemplate(&buffer, "23ke-config.yaml", getKeConfig())
-	_panic(err)
+	err := getLocalTemplate().ExecuteTemplate(&buffer, "23ke-config.yaml", getKeConfig())
+	common.Panic(err)
 
 	bytes := buffer.Bytes()
 	_23keConfigSec := corev1.Secret{}
@@ -42,6 +43,6 @@ func create23keConfigSecret(kubeClient client.WithWatch) {
 	err = kubeClient.Create(context.Background(), &_23keConfigSec)
 	if err != nil {
 		err = kubeClient.Update(context.Background(), &_23keConfigSec)
-		_panic(err)
+		common.Panic(err)
 	}
 }

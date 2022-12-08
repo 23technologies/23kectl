@@ -3,6 +3,7 @@ package install
 import (
 	"context"
 	"fmt"
+	"github.com/23technologies/23kectl/pkg/common"
 	"github.com/23technologies/23kectl/pkg/flux_utils"
 	"github.com/fluxcd/flux2/pkg/manifestgen"
 	"github.com/fluxcd/flux2/pkg/manifestgen/install"
@@ -20,17 +21,17 @@ func installFlux(kubeClient client.WithWatch, kubeconfigArgs *genericclioptions.
 	fmt.Println("Installing flux")
 
 	tmpDir, err := manifestgen.MkdirTempAbs("", *kubeconfigArgs.Namespace)
-	_panic(err)
+	common.Panic(err)
 
 	defer os.RemoveAll(tmpDir)
 
 	opts := install.MakeDefaultOptions()
 	manifest, err := install.Generate(opts, "")
-	_panic(err)
+	common.Panic(err)
 
 	_, err = manifest.WriteFile(tmpDir)
-	_panic(err)
+	common.Panic(err)
 
 	_, err = utils.Apply(context.Background(), kubeconfigArgs, kubeclientOptions, tmpDir, path.Join(tmpDir, manifest.Path))
-	_panic(err)
+	common.Panic(err)
 }

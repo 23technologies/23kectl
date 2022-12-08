@@ -3,10 +3,9 @@ package install
 import (
 	"errors"
 	"fmt"
+	"github.com/23technologies/23kectl/pkg/common"
 	"os"
 
-	"github.com/23technologies/23kectl/pkg/constants"
-	"github.com/23technologies/23kectl/pkg/internal_utils"
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/AlecAivazis/survey/v2/terminal"
 	"github.com/spf13/viper"
@@ -23,7 +22,7 @@ func handleErr(err error) {
 }
 
 // queryAdminConfig ...
-func queryAdminConfig()  {
+func queryAdminConfig() {
 	var err error
 	var prompt survey.Prompt
 
@@ -172,15 +171,14 @@ Automatically detecting VPA from within the cluster isn't reliable, so if you ch
 		case iDontKnow:
 			hasVerticalPodAutoscaler = false
 
-			printWarn(`A Vertical Pod Autoscaler will be deployed.
+			common.PrintWarn(`A Vertical Pod Autoscaler will be deployed.
 If the base cluster already provides one, both may keep reversing the other one's changes.
 Gardener will work but you'll see lots of pod restarts. Not recommended for production use.`)
-			pressEnterToContinue()
+			common.PressEnterToContinue()
 		}
 		viper.Set("baseCluster.hasVerticalPodAutoscaler", hasVerticalPodAutoscaler)
 		viper.WriteConfig()
 	}
-
 
 }
 
@@ -199,7 +197,7 @@ Note that it has to be delegated to the chosen DNS provider.`,
 
 	prompt = &survey.Select{
 		Message: "Define your DNS provider",
-		Options: []string{constants.DNS_PROVIDER_AZURE_DNS, constants.DNS_PROVIDER_OPENSTACK_DESIGNATE, constants.DNS_PROVIDER_AWS_ROUTE_53},
+		Options: []string{common.DNS_PROVIDER_AZURE_DNS, common.DNS_PROVIDER_OPENSTACK_DESIGNATE, common.DNS_PROVIDER_AWS_ROUTE_53},
 	}
 	err = survey.AskOne(prompt, &provider, withValidator("required"))
 	handleErr(err)
@@ -213,26 +211,26 @@ func (d *dnsCredentialsAzure) parseCredentials() {
 		{
 			Name:      "TenantId",
 			Prompt:    &survey.Input{Message: "Azure tenant ID? (plain or base64)"},
-			Validate:  makeValidator("required"),
-			Transform: survey.TransformString(utils23kectl.coerceBase64String),
+			Validate:  common.MakeValidatorFn("required"),
+			Transform: survey.TransformString(common.CoerceBase64String),
 		},
 		{
 			Name:      "SubscriptionId",
 			Prompt:    &survey.Input{Message: "Azure subscription ID? (plain or base64)"},
-			Validate:  makeValidator("required"),
-			Transform: survey.TransformString(coerceBase64String),
+			Validate:  common.MakeValidatorFn("required"),
+			Transform: survey.TransformString(common.CoerceBase64String),
 		},
 		{
 			Name:      "ClientID",
 			Prompt:    &survey.Input{Message: "Azure client ID? (plain or base64)"},
-			Validate:  makeValidator("required"),
-			Transform: survey.TransformString(coerceBase64String),
+			Validate:  common.MakeValidatorFn("required"),
+			Transform: survey.TransformString(common.CoerceBase64String),
 		},
 		{
 			Name:      "ClientSecret",
 			Prompt:    &survey.Input{Message: "Azure client secret? (plain or base64)"},
-			Validate:  makeValidator("required"),
-			Transform: survey.TransformString(coerceBase64String),
+			Validate:  common.MakeValidatorFn("required"),
+			Transform: survey.TransformString(common.CoerceBase64String),
 		},
 	}
 
@@ -245,20 +243,20 @@ func (d *dnsCredentialsOSDesignate) parseCredentials() {
 		{
 			Name:      "ApplicationCredentialID",
 			Prompt:    &survey.Input{Message: "Application Credential ID? (plain or base64)"},
-			Validate:  makeValidator("required"),
-			Transform: survey.TransformString(coerceBase64String),
+			Validate:  common.MakeValidatorFn("required"),
+			Transform: survey.TransformString(common.CoerceBase64String),
 		},
 		{
 			Name:      "ApplicationCredentialSecret",
 			Prompt:    &survey.Input{Message: "Application Credential Secret? (plain or base64)"},
-			Validate:  makeValidator("required"),
-			Transform: survey.TransformString(coerceBase64String),
+			Validate:  common.MakeValidatorFn("required"),
+			Transform: survey.TransformString(common.CoerceBase64String),
 		},
 		{
 			Name:      "AuthURL",
 			Prompt:    &survey.Input{Message: "AuthURL? (plain or base64)"},
-			Validate:  makeValidator("required,url"),
-			Transform: survey.TransformString(coerceBase64String),
+			Validate:  common.MakeValidatorFn("required,url"),
+			Transform: survey.TransformString(common.CoerceBase64String),
 		},
 	}
 
@@ -271,14 +269,14 @@ func (d *dnsCredentialsAWS53) parseCredentials() {
 		{
 			Name:      "AccessKeyID",
 			Prompt:    &survey.Input{Message: "Access Key ID? (plain or base64)"},
-			Validate:  makeValidator("required"),
-			Transform: survey.TransformString(coerceBase64String),
+			Validate:  common.MakeValidatorFn("required"),
+			Transform: survey.TransformString(common.CoerceBase64String),
 		},
 		{
 			Name:      "SecretAccessKey",
 			Prompt:    &survey.Input{Message: "Secret Access Key? (plain or base64)"},
-			Validate:  makeValidator("required"),
-			Transform: survey.TransformString(coerceBase64String),
+			Validate:  common.MakeValidatorFn("required"),
+			Transform: survey.TransformString(common.CoerceBase64String),
 		},
 	}
 
@@ -287,6 +285,5 @@ func (d *dnsCredentialsAWS53) parseCredentials() {
 }
 
 func withValidator(tag string) survey.AskOpt {
-	return survey.WithValidator(makeValidator(tag))
+	return survey.WithValidator(common.MakeValidatorFn(tag))
 }
-

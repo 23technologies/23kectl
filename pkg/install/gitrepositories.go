@@ -4,9 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/23technologies/23kectl/pkg/common"
 	"time"
 
-	"github.com/23technologies/23kectl/pkg/constants"
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/fluxcd/pkg/apis/meta"
 	sourcecontrollerv1beta2 "github.com/fluxcd/source-controller/api/v1beta2"
@@ -25,8 +25,8 @@ func createGitRepositories(kubeClient client.WithWatch, keys *ssh.PublicKeys) {
 	var err error
 
 	if !viper.IsSet("version") {
-		tags, err := list23keTags(keys)
-		_panic(err)
+		tags, err := common.List23keTags(keys)
+		common.Panic(err)
 		prompt := &survey.Select{
 			Message: "Select the 23ke version you want to install",
 			Options: tags,
@@ -46,12 +46,12 @@ func createGitRepositories(kubeClient client.WithWatch, keys *ssh.PublicKeys) {
 			Kind:       "GitRepository",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      constants.BASE_23KE_GITREPO_NAME,
+			Name:      common.BASE_23KE_GITREPO_NAME,
 			Namespace: "flux-system",
 		},
 		Spec: sourcecontrollerv1beta2.GitRepositorySpec{
-			URL:       constants.BASE_23KE_GITREPO_URI,
-			SecretRef: &meta.LocalObjectReference{Name: constants.BASE_23KE_GITREPO_KEY},
+			URL:       common.BASE_23KE_GITREPO_URI,
+			SecretRef: &meta.LocalObjectReference{Name: common.BASE_23KE_GITREPO_KEY},
 			Interval:  metav1.Duration{Duration: time.Minute},
 			Reference: &sourcecontrollerv1beta2.GitRepositoryRef{Tag: tag},
 		},
@@ -60,7 +60,7 @@ func createGitRepositories(kubeClient client.WithWatch, keys *ssh.PublicKeys) {
 
 	err = kubeClient.Create(context.TODO(), &gitrepo23ke, &client.CreateOptions{})
 	if err != nil {
-		printErr(err)
+		common.PrintErr(err)
 	}
 
 	gitRepoUrl := viper.GetString("admin.gitrepourl")
@@ -72,12 +72,12 @@ func createGitRepositories(kubeClient client.WithWatch, keys *ssh.PublicKeys) {
 			Kind:       "GitRepository",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      constants.CONFIG_23KE_GITREPO_NAME,
+			Name:      common.CONFIG_23KE_GITREPO_NAME,
 			Namespace: "flux-system",
 		},
 		Spec: sourcecontrollerv1beta2.GitRepositorySpec{
 			URL:       gitRepoUrl,
-			SecretRef: &meta.LocalObjectReference{Name: constants.CONFIG_23KE_GITREPO_KEY},
+			SecretRef: &meta.LocalObjectReference{Name: common.CONFIG_23KE_GITREPO_KEY},
 			Interval:  metav1.Duration{Duration: time.Minute},
 			Reference: &sourcecontrollerv1beta2.GitRepositoryRef{Branch: gitRepoBranch},
 		},
@@ -86,7 +86,7 @@ func createGitRepositories(kubeClient client.WithWatch, keys *ssh.PublicKeys) {
 
 	err = kubeClient.Create(context.TODO(), &gitrepo23keconfig, &client.CreateOptions{})
 	if err != nil {
-		printErr(err)
+		common.PrintErr(err)
 	}
 }
 
@@ -107,29 +107,29 @@ func updateConfigRepo(publicKeys ssh.PublicKeys) error {
 
 	worktree, err := repository.Worktree()
 	if err != nil {
-		printErr(err)
+		common.PrintErr(err)
 	}
 
 	_, err = worktree.Remove(".")
 	if err != nil {
-		printErr(err)
+		common.PrintErr(err)
 	}
 
 	fmt.Printf("Writing new config\n")
 
 	err = writeConfigDir(workTreeFs, ".")
 	if err != nil {
-		printErr(err)
+		common.PrintErr(err)
 	}
 
 	_, err = worktree.Add(".")
 	if err != nil {
-		printErr(err)
+		common.PrintErr(err)
 	}
 
 	status, err := worktree.Status()
 	if err != nil {
-		printErr(err)
+		common.PrintErr(err)
 	}
 
 	if status.IsClean() {
@@ -144,14 +144,14 @@ func updateConfigRepo(publicKeys ssh.PublicKeys) error {
 			},
 		})
 		if err != nil {
-			printErr(err)
+			common.PrintErr(err)
 		}
 
 		fmt.Printf("Pushing to config repo\n")
 		err = repository.Push(&git.PushOptions{
 			Auth: &publicKeys,
 		})
-		printErr(err)
+		common.PrintErr(err)
 	}
 
 	return nil
