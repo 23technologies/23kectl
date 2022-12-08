@@ -4,8 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/23technologies/23kectl/pkg/common"
 	"time"
+
+	"github.com/23technologies/23kectl/pkg/common"
 
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/fluxcd/pkg/apis/meta"
@@ -132,12 +133,12 @@ func updateConfigRepo(publicKeys ssh.PublicKeys) error {
 				Branch: plumbing.NewBranchReferenceName(branchName),
 				Create: true,
 			})
-			_panic(err)
+			common.Panic(err)
 		} else {
 			err = worktree.Checkout(&git.CheckoutOptions{
 				Branch: plumbing.NewBranchReferenceName(branchName),
 			})
-			_panic(err)
+			common.Panic(err)
 		}
 	}
 
