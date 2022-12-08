@@ -12,13 +12,25 @@ import (
 // installCmd represents the install command
 var installCmd = &cobra.Command{
 	Use:   "install",
-	Short: "A brief description of your command",
-	Long: `A longer description that spans multiple lines and likely contains examples
-and usage of using your command. For example:
+	Short: "Install the 23KE Gardener distribution",
+	Long: `This command will guide you through the installation process of 23KE.
 
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
+You are required to have access to the 23KE git repository.
+Access can be granted by the 23T administrators only.
+If you do not have access yet, contact us. You will find contact information on:
+
+https://23technologies.cloud
+
+Other than that you need:
+-  A Kubernetes cluster (also called base cluster) running in the cloud
+-  A DNS provider e.g. azure-dns, aws-route53, openstack-designate
+-  A domain delegated to the DNS provider of choice
+-  A remote git repository which is accessible (read and write) via ssh
+-  Knowledge about Flux, Helm and Kustomize
+for the installation.
+
+Dependent on your relationship with 23T you will be charged for using 23KE.
+`,
 	Run: func(cmd *cobra.Command, args []string) {
 		config := install.KeConfig{}
 		viper.ReadInConfig()
