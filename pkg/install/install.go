@@ -4,12 +4,11 @@ import (
 	"context"
 	"fmt"
 	"github.com/23technologies/23kectl/pkg/common"
+	"github.com/fatih/color"
 	"github.com/mitchellh/mapstructure"
+	"github.com/spf13/viper"
 	"net"
 	"strings"
-
-	"github.com/fatih/color"
-	"github.com/spf13/viper"
 
 	"github.com/23technologies/23kectl/pkg/flux_utils"
 
@@ -62,9 +61,11 @@ Depending on your relationship with 23T, 23T will come up with a pricing model f
 
 	create23keConfigSecret(kubeClient)
 
-	installVPACRDs(kubeconfigArgs, kubeclientOptions)
+	// 	installVPACRDs(kubeconfigArgs, kubeclientOptions)
 
 	createGitRepositories(kubeClient, publicKeys23ke)
+
+	createAddonsKs(kubeClient)
 
 	createKustomizations(kubeClient)
 
