@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"path"
 
-	"github.com/23technologies/23kectl/pkg/utils"
+	"github.com/23technologies/23kectl/pkg/flux_utils"
 	runclient "github.com/fluxcd/pkg/runtime/client"
 	"github.com/spf13/viper"
 	"k8s.io/cli-runtime/pkg/genericclioptions"

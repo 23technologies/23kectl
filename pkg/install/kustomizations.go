@@ -2,10 +2,12 @@ package install
 
 import (
 	"context"
+	"time"
+
+	"github.com/23technologies/23kectl/pkg/constants"
 	kustomizecontrollerv1beta2 "github.com/fluxcd/kustomize-controller/api/v1beta2"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"time"
 )
 
 func createKustomizations(kubeClient client.WithWatch) {
@@ -16,7 +18,7 @@ func createKustomizations(kubeClient client.WithWatch) {
 			Kind:       "Kustomization",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "23ke-base",
+			Name:      constants.BASE_23KE_KS_NAME,
 			Namespace: "flux-system",
 		},
 		Spec: kustomizecontrollerv1beta2.KustomizationSpec{
@@ -27,7 +29,7 @@ func createKustomizations(kubeClient client.WithWatch) {
 			Prune: true,
 			SourceRef: kustomizecontrollerv1beta2.CrossNamespaceSourceReference{
 				Kind: "GitRepository",
-				Name: "23ke",
+				Name: constants.BASE_23KE_GITREPO_NAME,
 			},
 		},
 		Status: kustomizecontrollerv1beta2.KustomizationStatus{},
@@ -41,7 +43,7 @@ func createKustomizations(kubeClient client.WithWatch) {
 			Kind:       "Kustomization",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "23ke-env-config",
+			Name:      constants.CONFIG_KS_NAME,
 			Namespace: "flux-system",
 		},
 		Spec: kustomizecontrollerv1beta2.KustomizationSpec{
@@ -52,7 +54,7 @@ func createKustomizations(kubeClient client.WithWatch) {
 			Prune: true,
 			SourceRef: kustomizecontrollerv1beta2.CrossNamespaceSourceReference{
 				Kind: "GitRepository",
-				Name: "23ke-config",
+				Name: constants.CONFIG_23KE_GITREPO_NAME,
 			},
 		},
 		Status: kustomizecontrollerv1beta2.KustomizationStatus{},

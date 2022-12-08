@@ -3,7 +3,7 @@ package install
 import (
 	"context"
 	"fmt"
-	"github.com/23technologies/23kectl/pkg/utils"
+	"github.com/23technologies/23kectl/pkg/flux_utils"
 	"github.com/fluxcd/flux2/pkg/manifestgen"
 	"github.com/fluxcd/flux2/pkg/manifestgen/install"
 	runclient "github.com/fluxcd/pkg/runtime/client"

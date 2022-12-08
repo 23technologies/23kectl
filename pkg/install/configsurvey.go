@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/23technologies/23kectl/pkg/constants"
+	"github.com/23technologies/23kectl/pkg/internal_utils"
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/AlecAivazis/survey/v2/terminal"
 	"github.com/spf13/viper"
@@ -197,7 +199,7 @@ Note that it has to be delegated to the chosen DNS provider.`,
 
 	prompt = &survey.Select{
 		Message: "Define your DNS provider",
-		Options: []string{DNS_PROVIDER_AZURE_DNS, DNS_PROVIDER_OPENSTACK_DESIGNATE, DNS_PROVIDER_AWS_ROUTE_53},
+		Options: []string{constants.DNS_PROVIDER_AZURE_DNS, constants.DNS_PROVIDER_OPENSTACK_DESIGNATE, constants.DNS_PROVIDER_AWS_ROUTE_53},
 	}
 	err = survey.AskOne(prompt, &provider, withValidator("required"))
 	handleErr(err)
@@ -212,7 +214,7 @@ func (d *dnsCredentialsAzure) parseCredentials() {
 			Name:      "TenantId",
 			Prompt:    &survey.Input{Message: "Azure tenant ID? (plain or base64)"},
 			Validate:  makeValidator("required"),
-			Transform: survey.TransformString(coerceBase64String),
+			Transform: survey.TransformString(utils23kectl.coerceBase64String),
 		},
 		{
 			Name:      "SubscriptionId",

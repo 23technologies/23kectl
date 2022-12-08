@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/23technologies/23kectl/pkg/constants"
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/fluxcd/pkg/apis/meta"
 	sourcecontrollerv1beta2 "github.com/fluxcd/source-controller/api/v1beta2"
@@ -45,12 +46,12 @@ func createGitRepositories(kubeClient client.WithWatch, keys *ssh.PublicKeys) {
 			Kind:       "GitRepository",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "23ke",
+			Name:      constants.BASE_23KE_GITREPO_NAME,
 			Namespace: "flux-system",
 		},
 		Spec: sourcecontrollerv1beta2.GitRepositorySpec{
-			URL:       _23KERepoURI,
-			SecretRef: &meta.LocalObjectReference{Name: "23ke-key"},
+			URL:       constants.BASE_23KE_GITREPO_URI,
+			SecretRef: &meta.LocalObjectReference{Name: constants.BASE_23KE_GITREPO_KEY},
 			Interval:  metav1.Duration{Duration: time.Minute},
 			Reference: &sourcecontrollerv1beta2.GitRepositoryRef{Tag: tag},
 		},
@@ -71,12 +72,12 @@ func createGitRepositories(kubeClient client.WithWatch, keys *ssh.PublicKeys) {
 			Kind:       "GitRepository",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "23ke-config",
+			Name:      constants.CONFIG_23KE_GITREPO_NAME,
 			Namespace: "flux-system",
 		},
 		Spec: sourcecontrollerv1beta2.GitRepositorySpec{
 			URL:       gitRepoUrl,
-			SecretRef: &meta.LocalObjectReference{Name: "23ke-config-key"},
+			SecretRef: &meta.LocalObjectReference{Name: constants.CONFIG_23KE_GITREPO_KEY},
 			Interval:  metav1.Duration{Duration: time.Minute},
 			Reference: &sourcecontrollerv1beta2.GitRepositoryRef{Branch: gitRepoBranch},
 		},
