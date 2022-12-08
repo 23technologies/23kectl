@@ -11,6 +11,7 @@ import (
 	sourcecontrollerv1beta2 "github.com/fluxcd/source-controller/api/v1beta2"
 	"github.com/go-git/go-billy/v5/memfs"
 	"github.com/go-git/go-git/v5"
+	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/object"
 	"github.com/go-git/go-git/v5/plumbing/transport"
 	"github.com/go-git/go-git/v5/plumbing/transport/ssh"
@@ -97,16 +98,46 @@ func updateConfigRepo(publicKeys ssh.PublicKeys) error {
 
 	fmt.Printf("Cloning config repo to memory\n")
 	repository, err := git.Clone(memory.NewStorage(), workTreeFs, &git.CloneOptions{
-		Auth: &publicKeys,
-		URL:  gitRepo,
+		URL:        gitRepo,
+		Auth:       &publicKeys,
+		NoCheckout: true,
 	})
 	if err != nil && !errors.Is(err, transport.ErrEmptyRemoteRepository) {
 		panic(err)
 	}
 
+	branchName := viper.GetString("admin.gitRepoBranch")
+
+	// check whether the remote reference exists
+	// if not, we create an orphaned branch, this is the same as git init would do and should
+	// https://github.com/go-git/go-git/issues/370
+	remoteRef, err := repository.Reference(plumbing.NewRemoteReferenceName("origin", branchName), true)
+	if err != nil {
+		repository.Storer.SetReference(plumbing.NewSymbolicReference(plumbing.HEAD, plumbing.NewBranchReferenceName(branchName)))
+	}
+
 	worktree, err := repository.Worktree()
 	if err != nil {
 		printErr(err)
+	}
+
+	// if the remoteRef was found we either checkout and create a local copy of the remote branch,
+	// or, if the local branch already exists, we simply check it out
+	if remoteRef != nil {
+		_, err = repository.Reference(plumbing.NewBranchReferenceName(branchName), true)
+		if err != nil {
+			err = worktree.Checkout(&git.CheckoutOptions{
+				Hash:   remoteRef.Hash(),
+				Branch: plumbing.NewBranchReferenceName(branchName),
+				Create: true,
+			})
+			_panic(err)
+		} else {
+			err = worktree.Checkout(&git.CheckoutOptions{
+				Branch: plumbing.NewBranchReferenceName(branchName),
+			})
+			_panic(err)
+		}
 	}
 
 	_, err = worktree.Remove(".")
