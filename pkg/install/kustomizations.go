@@ -41,7 +41,7 @@ func createKustomizations(kubeClient client.WithWatch) {
 			Kind:       "Kustomization",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "23ke-config",
+			Name:      "23ke-env-config",
 			Namespace: "flux-system",
 		},
 		Spec: kustomizecontrollerv1beta2.KustomizationSpec{
