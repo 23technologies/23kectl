@@ -80,7 +80,7 @@ func createAddonsKs(kubeClient client.WithWatch) {
 			Kind:       "Kustomization",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      common.BASE_23KE_KS_NAME,
+			Name:      common.BASE_ADDONS_23KE_KS_NAME,
 			Namespace: common.FLUX_NAMESPACE,
 		},
 		Spec: kustomizecontrollerv1beta2.KustomizationSpec{

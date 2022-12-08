@@ -28,6 +28,7 @@ var DNS_PROVIDER_TO_PROVIDER = map[string]string{
 
 const FLUX_NAMESPACE = "flux-system"
 const BASE_23KE_KS_NAME = "23ke-base"
+const BASE_ADDONS_23KE_KS_NAME = "23ke-base-addons"
 const BASE_23KE_GITREPO_NAME = "23ke"
 const BASE_23KE_GITREPO_KEY = "23ke-key"
 const CONFIG_KS_NAME = "23ke-env-config"
