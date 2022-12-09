@@ -3,6 +3,7 @@ package install
 import (
 	"errors"
 	"fmt"
+	"github.com/23technologies/23kectl/pkg/common"
 	"os"
 
 	"github.com/AlecAivazis/survey/v2"
@@ -11,7 +12,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-func handleErr(err error) {
+func exitOnCtrlC(err error) {
 	if errors.Is(err, terminal.InterruptErr) {
 		fmt.Println("Ctrl+C, exiting.")
 		os.Exit(1)
@@ -21,7 +22,7 @@ func handleErr(err error) {
 }
 
 // queryAdminConfig ...
-func queryAdminConfig()  {
+func queryAdminConfig() error {
 	var err error
 	var prompt survey.Prompt
 
@@ -32,7 +33,10 @@ This will be the email address to use, when you want to login to the Gardener da
 		}
 		var queryResult string
 		err = survey.AskOne(prompt, &queryResult, withValidator("required,email"))
-		handleErr(err)
+		exitOnCtrlC(err)
+		if err != nil {
+			return err
+		}
 		viper.Set("admin.email", queryResult)
 		viper.WriteConfig()
 	}
@@ -44,10 +48,16 @@ This will be the password to use, when you login to the Gardener dashboard.`,
 		}
 		var queryResult string
 		err = survey.AskOne(prompt, &queryResult, withValidator("required"))
-		handleErr(err)
+		exitOnCtrlC(err)
+		if err != nil {
+			return err
+		}
 
 		hash, err := bcrypt.GenerateFromPassword(([]byte)(queryResult), 10)
-		handleErr(err)
+		exitOnCtrlC(err)
+		if err != nil {
+			return err
+		}
 		viper.Set("admin.password", string(hash))
 		viper.WriteConfig()
 	}
@@ -62,7 +72,10 @@ Flux will monitor these files to pick up configuration changes.
 		}
 		var queryResult string
 		err = survey.AskOne(prompt, &queryResult, withValidator("required,url,startswith=ssh://"))
-		handleErr(err)
+		exitOnCtrlC(err)
+		if err != nil {
+			return err
+		}
 		viper.Set("admin.gitrepourl", queryResult)
 		viper.WriteConfig()
 	}
@@ -78,13 +91,18 @@ You can store configuration files for multiple gardeners (e.g. prod, staging, de
 		}
 		var queryResult string
 		err = survey.AskOne(prompt, &queryResult, withValidator("required"))
-		handleErr(err)
+		exitOnCtrlC(err)
+		if err != nil {
+			return err
+		}
 		viper.Set("admin.gitrepobranch", queryResult)
 		viper.WriteConfig()
 	}
+
+	return nil
 }
 
-func queryBaseClusterConfig() {
+func queryBaseClusterConfig() error {
 	var err error
 	var prompt survey.Prompt
 
@@ -100,7 +118,10 @@ If you feel like this list in incomplete, contact the 23T support.
 		}
 		var queryResult string
 		err = survey.AskOne(prompt, &queryResult, withValidator("required"))
-		handleErr(err)
+		exitOnCtrlC(err)
+		if err != nil {
+			return err
+		}
 		viper.Set("baseCluster.provider", queryResult)
 		viper.WriteConfig()
 	}
@@ -116,7 +137,10 @@ For clusters hosted on Azure, this could be e.g. germanywestcentral or westeurop
 		}
 		var queryResult string
 		err = survey.AskOne(prompt, &queryResult, withValidator("required"))
-		handleErr(err)
+		exitOnCtrlC(err)
+		if err != nil {
+			return err
+		}
 		viper.Set("baseCluster.region", queryResult)
 		viper.WriteConfig()
 	}
@@ -132,7 +156,10 @@ Therefore, the node CIDR should match a network that comprises all ip addresses 
 		}
 		var queryResult string
 		err = survey.AskOne(prompt, &queryResult, withValidator("required,cidr"))
-		handleErr(err)
+		exitOnCtrlC(err)
+		if err != nil {
+			return err
+		}
 		viper.Set("baseCluster.nodeCidr", queryResult)
 	}
 	viper.Set("gardenlet.seedNodeCidr", viper.GetString("baseCluster.nodeCidr"))
@@ -158,7 +185,10 @@ Automatically detecting VPA from within the cluster isn't reliable, so if you ch
 		var queryResult string
 
 		err = survey.AskOne(prompt, &queryResult)
-		handleErr(err)
+		exitOnCtrlC(err)
+		if err != nil {
+			return err
+		}
 
 		var hasVerticalPodAutoscaler bool
 
@@ -170,19 +200,18 @@ Automatically detecting VPA from within the cluster isn't reliable, so if you ch
 		case iDontKnow:
 			hasVerticalPodAutoscaler = false
 
-			printWarn(`A Vertical Pod Autoscaler will be deployed.
+			common.PrintWarn(`A Vertical Pod Autoscaler will be deployed.
 If the base cluster already provides one, both may keep reversing the other one's changes.
 Gardener will work but you'll see lots of pod restarts. Not recommended for production use.`)
-			pressEnterToContinue()
+			common.PressEnterToContinue()
 		}
 		viper.Set("baseCluster.hasVerticalPodAutoscaler", hasVerticalPodAutoscaler)
 		viper.WriteConfig()
 	}
-
-
+	return nil
 }
 
-func queryDomainConfig() domainConfiguration {
+func queryDomainConfig() (*domainConfiguration, error) {
 	var err error
 	var domain, provider string
 	var prompt survey.Prompt
@@ -193,98 +222,116 @@ Gardener components will be available as subdomains of this (e.g dashboard.<gard
 Note that it has to be delegated to the chosen DNS provider.`,
 	}
 	err = survey.AskOne(prompt, &domain, withValidator("required,fqdn"))
-	handleErr(err)
+	exitOnCtrlC(err)
+	if err != nil {
+		return nil, err
+	}
 
 	prompt = &survey.Select{
 		Message: "Define your DNS provider",
-		Options: []string{DNS_PROVIDER_AZURE_DNS, DNS_PROVIDER_OPENSTACK_DESIGNATE, DNS_PROVIDER_AWS_ROUTE_53},
+		Options: []string{common.DNS_PROVIDER_AZURE_DNS, common.DNS_PROVIDER_OPENSTACK_DESIGNATE, common.DNS_PROVIDER_AWS_ROUTE_53},
 	}
 	err = survey.AskOne(prompt, &provider, withValidator("required"))
-	handleErr(err)
+	exitOnCtrlC(err)
+	if err != nil {
+		return nil, err
+	}
 
 	domainConfig, _ := createDomainConfiguration(domain, provider)
-	return domainConfig
+	return &domainConfig, nil
 }
 
-func (d *dnsCredentialsAzure) parseCredentials() {
+func (d *dnsCredentialsAzure) parseCredentials() error {
 	qs := []*survey.Question{
 		{
 			Name:      "TenantId",
 			Prompt:    &survey.Input{Message: "Azure tenant ID? (plain or base64)"},
-			Validate:  makeValidator("required"),
-			Transform: survey.TransformString(coerceBase64String),
+			Validate:  common.MakeValidatorFn("required"),
+			Transform: survey.TransformString(common.CoerceBase64String),
 		},
 		{
 			Name:      "SubscriptionId",
 			Prompt:    &survey.Input{Message: "Azure subscription ID? (plain or base64)"},
-			Validate:  makeValidator("required"),
-			Transform: survey.TransformString(coerceBase64String),
+			Validate:  common.MakeValidatorFn("required"),
+			Transform: survey.TransformString(common.CoerceBase64String),
 		},
 		{
 			Name:      "ClientID",
 			Prompt:    &survey.Input{Message: "Azure client ID? (plain or base64)"},
-			Validate:  makeValidator("required"),
-			Transform: survey.TransformString(coerceBase64String),
+			Validate:  common.MakeValidatorFn("required"),
+			Transform: survey.TransformString(common.CoerceBase64String),
 		},
 		{
 			Name:      "ClientSecret",
 			Prompt:    &survey.Input{Message: "Azure client secret? (plain or base64)"},
-			Validate:  makeValidator("required"),
-			Transform: survey.TransformString(coerceBase64String),
+			Validate:  common.MakeValidatorFn("required"),
+			Transform: survey.TransformString(common.CoerceBase64String),
 		},
 	}
 
 	err := survey.Ask(qs, d)
-	handleErr(err)
+	exitOnCtrlC(err)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
-func (d *dnsCredentialsOSDesignate) parseCredentials() {
+func (d *dnsCredentialsOSDesignate) parseCredentials() error {
 	qs := []*survey.Question{
 		{
 			Name:      "ApplicationCredentialID",
 			Prompt:    &survey.Input{Message: "Application Credential ID? (plain or base64)"},
-			Validate:  makeValidator("required"),
-			Transform: survey.TransformString(coerceBase64String),
+			Validate:  common.MakeValidatorFn("required"),
+			Transform: survey.TransformString(common.CoerceBase64String),
 		},
 		{
 			Name:      "ApplicationCredentialSecret",
 			Prompt:    &survey.Input{Message: "Application Credential Secret? (plain or base64)"},
-			Validate:  makeValidator("required"),
-			Transform: survey.TransformString(coerceBase64String),
+			Validate:  common.MakeValidatorFn("required"),
+			Transform: survey.TransformString(common.CoerceBase64String),
 		},
 		{
 			Name:      "AuthURL",
 			Prompt:    &survey.Input{Message: "AuthURL? (plain or base64)"},
-			Validate:  makeValidator("required,url"),
-			Transform: survey.TransformString(coerceBase64String),
+			Validate:  common.MakeValidatorFn("required,url"),
+			Transform: survey.TransformString(common.CoerceBase64String),
 		},
 	}
 
 	err := survey.Ask(qs, d)
-	handleErr(err)
+	exitOnCtrlC(err)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
-func (d *dnsCredentialsAWS53) parseCredentials() {
+func (d *dnsCredentialsAWS53) parseCredentials() error {
 	qs := []*survey.Question{
 		{
 			Name:      "AccessKeyID",
 			Prompt:    &survey.Input{Message: "Access Key ID? (plain or base64)"},
-			Validate:  makeValidator("required"),
-			Transform: survey.TransformString(coerceBase64String),
+			Validate:  common.MakeValidatorFn("required"),
+			Transform: survey.TransformString(common.CoerceBase64String),
 		},
 		{
 			Name:      "SecretAccessKey",
 			Prompt:    &survey.Input{Message: "Secret Access Key? (plain or base64)"},
-			Validate:  makeValidator("required"),
-			Transform: survey.TransformString(coerceBase64String),
+			Validate:  common.MakeValidatorFn("required"),
+			Transform: survey.TransformString(common.CoerceBase64String),
 		},
 	}
 
 	err := survey.Ask(qs, d)
-	handleErr(err)
+	exitOnCtrlC(err)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func withValidator(tag string) survey.AskOpt {
-	return survey.WithValidator(makeValidator(tag))
+	return survey.WithValidator(common.MakeValidatorFn(tag))
 }
-

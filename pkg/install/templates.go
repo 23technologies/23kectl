@@ -3,15 +3,17 @@ package install
 import (
 	"embed"
 	"fmt"
-	"github.com/Masterminds/sprig/v3"
-	"github.com/go-git/go-billy/v5"
-	"gopkg.in/yaml.v3"
+	"github.com/23technologies/23kectl/pkg/common"
 	"io/fs"
 	"os"
 	"path"
 	"regexp"
 	"strings"
 	"text/template"
+
+	"github.com/Masterminds/sprig/v3"
+	"github.com/go-git/go-billy/v5"
+	"gopkg.in/yaml.v3"
 )
 
 func newDomainConfigAzure(domain string) domainConfiguration {
@@ -19,7 +21,7 @@ func newDomainConfigAzure(domain string) domainConfiguration {
 	dnsCredentials.parseCredentials()
 	return domainConfiguration{
 		Domain:      domain,
-		Provider:    DNS_PROVIDER_AZURE_DNS,
+		Provider:    common.DNS_PROVIDER_AZURE_DNS,
 		Credentials: &dnsCredentials,
 	}
 }
@@ -29,7 +31,7 @@ func newDomainOSDesignate(domain string) domainConfiguration {
 	dnsCredentials.parseCredentials()
 	return domainConfiguration{
 		Domain:      domain,
-		Provider:    DNS_PROVIDER_OPENSTACK_DESIGNATE,
+		Provider:    common.DNS_PROVIDER_OPENSTACK_DESIGNATE,
 		Credentials: &dnsCredentials,
 	}
 }
@@ -39,7 +41,7 @@ func newDomainAWS53(domain string) domainConfiguration {
 	dnsCredentials.parseCredentials()
 	return domainConfiguration{
 		Domain:      domain,
-		Provider:    DNS_PROVIDER_AWS_ROUTE_53,
+		Provider:    common.DNS_PROVIDER_AWS_ROUTE_53,
 		Credentials: &dnsCredentials,
 	}
 }
@@ -47,11 +49,11 @@ func newDomainAWS53(domain string) domainConfiguration {
 func createDomainConfiguration(domain string, dnsProvider string) (domainConfiguration, error) {
 
 	switch dnsProvider {
-	case DNS_PROVIDER_AZURE_DNS:
+	case common.DNS_PROVIDER_AZURE_DNS:
 		return newDomainConfigAzure(domain), nil
-	case DNS_PROVIDER_OPENSTACK_DESIGNATE:
+	case common.DNS_PROVIDER_OPENSTACK_DESIGNATE:
 		return newDomainOSDesignate(domain), nil
-	case DNS_PROVIDER_AWS_ROUTE_53:
+	case common.DNS_PROVIDER_AWS_ROUTE_53:
 		return newDomainAWS53(domain), nil
 	}
 
@@ -83,23 +85,9 @@ func makeTemplate() *template.Template {
 
 //go:embed templates
 var embedFS embed.FS
-
-var localTemplate *template.Template
-
-func getLocalTemplate() *template.Template {
-	if localTemplate == nil {
-		tpl, err := makeTemplate().ParseFS(embedFS, "templates/local/*.yaml")
-		_panic(err)
-
-		localTemplate = tpl
-	}
-
-	return localTemplate
-}
-
 var configTemplate *template.Template
 
-func getConfigTemplate() *template.Template {
+func getConfigTemplate() (*template.Template, error) {
 	if configTemplate == nil {
 		templateRoot := "templates/config"
 		templatePattern := regexp.MustCompile(`\.yaml$`)
@@ -133,18 +121,28 @@ func getConfigTemplate() *template.Template {
 
 			return nil
 		})
-		_panic(err)
+		if err != nil {
+			return nil, err
+		}
 
 		configTemplate = tpl
 	}
 
-	return configTemplate
+	return configTemplate, nil
 }
 
 func writeConfigDir(filesystem billy.Filesystem, gitRoot string) error {
-	keConfig := getKeConfig()
+	keConfig, err := getKeConfig()
+	if err != nil {
+		return err
+	}
 
-	for _, tpl := range getConfigTemplate().Templates() {
+	configTemplate, err := getConfigTemplate()
+	if err != nil {
+		return err
+	}
+
+	for _, tpl := range configTemplate.Templates() {
 		name := tpl.Name()
 
 		destPath := path.Join(gitRoot, name)

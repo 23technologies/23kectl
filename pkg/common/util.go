@@ -1,4 +1,4 @@
-package install
+package common
 
 import (
 	"crypto/rand"
@@ -8,11 +8,8 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/go-playground/validator/v10"
-	"github.com/mitchellh/mapstructure"
-	"github.com/spf13/viper"
-
 	"github.com/fatih/color"
+	"github.com/go-playground/validator/v10"
 
 	"github.com/go-git/go-git/v5"
 	gitconfig "github.com/go-git/go-git/v5/config"
@@ -23,18 +20,12 @@ import (
 	"github.com/akrennmair/slice"
 )
 
-func _panic(err error) {
-	if err != nil {
-		panic(err.Error())
-	}
-}
-
-func pressEnterToContinue() {
+func PressEnterToContinue() {
 	fmt.Println("Press the Enter Key to continue")
 	fmt.Scanln()
 }
 
-func coerceBase64String(s string) string {
+func CoerceBase64String(s string) string {
 	if isBase64String(s) {
 		return s
 	} else {
@@ -60,14 +51,14 @@ const colorHighlight = color.FgBlue
 // const colorSuccess = color.FgGreen
 const colorWarn = color.FgYellow
 
-var printErr = color.New(colorErr).PrintlnFunc()
-var printHighlight = color.New(colorHighlight).PrintlnFunc()
+var PrintErr = color.New(colorErr).PrintlnFunc()
+var PrintHighlight = color.New(colorHighlight).PrintlnFunc()
 
 // var printSuccess = color.New(colorSuccess).PrintlnFunc()
-var printWarn = color.New(colorWarn).PrintlnFunc()
+var PrintWarn = color.New(colorWarn).PrintlnFunc()
 
 // list23keTag ...
-func list23keTags(publicKeys *ssh.PublicKeys) ([]string, error) {
+func List23keTags(publicKeys *ssh.PublicKeys) ([]string, error) {
 
 	rem := git.NewRemote(memory.NewStorage(), &gitconfig.RemoteConfig{
 		Name: "23ke-origin",
@@ -111,37 +102,8 @@ func list23keTags(publicKeys *ssh.PublicKeys) ([]string, error) {
 	return slice.Map(versions, func(v *semver.Version) string { return "v" + v.String() }), nil
 }
 
-func randHex(bytes int) string {
+func RandHex(bytes int) string {
 	byteArr := make([]byte, bytes)
 	rand.Read(byteArr)
 	return hex.EncodeToString(byteArr)
-}
-
-func getKeConfig() *KeConfig {
-	keConfig := new(KeConfig)
-	UnmarshalKeConfig(keConfig)
-	return keConfig
-}
-
-// unmarshalKeConfig ...
-func UnmarshalKeConfig(config *KeConfig) {
-
-	err := viper.Unmarshal(config)
-	_panic(err)
-
-	_, ok := (config.DomainConfig.Credentials).(map[string]interface{})
-	if ok {
-		var creds interface{}
-		switch config.DomainConfig.Provider {
-		case DNS_PROVIDER_AZURE_DNS:
-			creds = dnsCredentialsAzure{}
-		case DNS_PROVIDER_OPENSTACK_DESIGNATE:
-			creds = dnsCredentialsOSDesignate{}
-		case DNS_PROVIDER_AWS_ROUTE_53:
-			creds = dnsCredentialsAWS53{}
-		}
-		err = mapstructure.Decode(config.DomainConfig.Credentials, &creds)
-		_panic(err)
-		config.DomainConfig.Credentials = creds
-	}
 }

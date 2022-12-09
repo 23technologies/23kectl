@@ -11,7 +11,30 @@ import (
 	k8syaml "sigs.k8s.io/yaml"
 )
 
-func create23keConfigSecret(kubeClient client.WithWatch) {
+const templateString = `
+apiVersion: v1
+kind: Secret
+metadata:
+  name: 23ke-config
+  namespace: flux-system
+type: Opaque
+stringData:
+  values.yaml: |
+    clusterIdentity: {{ .ClusterIdentity }}
+    dashboard:
+      clientSecret: {{ .Dashboard.ClientSecret }}
+      sessionSecret: {{ .Dashboard.SessionSecret }}
+    kubeApiServer:
+      basicAuthPassword: {{ .KubeApiServer.BasicAuthPassword }}
+    issuer:
+      acme:
+        email: {{ .Issuer.Acme.Email }}
+    domains:
+      global: # means used for ingress, gardener defaultDomain and internalDomain
+        {{- nindent 8 (toYaml .DomainConfig) }}
+`
+
+func create23keConfigSecret(kubeClient client.WithWatch) error {
 	// Create the 23ke-config secret
 	if !viper.IsSet("issuer.acme.email") {
 		prompt := &survey.Input{
@@ -20,28 +43,62 @@ func create23keConfigSecret(kubeClient client.WithWatch) {
 		}
 		var queryResult string
 		err := survey.AskOne(prompt, &queryResult, withValidator("required,email"))
+		exitOnCtrlC(err)
+		if err != nil {
+			return err
+		}
 		viper.Set("issuer.acme.email", queryResult)
-		viper.WriteConfig()
-		handleErr(err)
+		err = viper.WriteConfig()
+		if err != nil {
+			return err
+		}
 	}
 
 	if !viper.IsSet("domainConfig") {
-		viper.Set("domainConfig", queryDomainConfig())
-		viper.WriteConfig()
+		domainConfig, err := queryDomainConfig()
+		if err != nil {
+			return err
+		}
+		viper.Set("domainConfig", domainConfig)
+		err = viper.WriteConfig()
+		if err != nil {
+			return err
+		}
 	}
-	
+
 	fmt.Println("Creating '23ke-config' secret")
 
 	buffer := bytes.Buffer{}
-	err  := getLocalTemplate().ExecuteTemplate(&buffer, "23ke-config.yaml", getKeConfig())
-	_panic(err)
+
+	tpl, err := makeTemplate().Parse(templateString)
+	if err != nil {
+		return err
+	}
+	keConfig, err := getKeConfig()
+	if err != nil {
+		return err
+	}
+
+	err = tpl.Execute(&buffer, keConfig)
+	if err != nil {
+		return err
+	}
 
 	bytes := buffer.Bytes()
 	_23keConfigSec := corev1.Secret{}
-	k8syaml.Unmarshal(bytes, &_23keConfigSec)
+
+	err = k8syaml.Unmarshal(bytes, &_23keConfigSec)
+	if err != nil {
+		return err
+	}
+
 	err = kubeClient.Create(context.Background(), &_23keConfigSec)
 	if err != nil {
 		err = kubeClient.Update(context.Background(), &_23keConfigSec)
-		_panic(err)
+		if err != nil {
+			return err
+		}
 	}
+
+	return nil
 }
