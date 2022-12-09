@@ -16,7 +16,7 @@ jobs:
           go-version: '^1.19.0'
 
       - name: Setup errcheck
-        run: go install github.com/kisielk/errcheck@1.6.2
+        run: go install github.com/kisielk/errcheck@latest
 
       - name: Run errcheck
         run: errcheck ./
