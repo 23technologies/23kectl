@@ -5,8 +5,10 @@ package cmd
 
 import (
 	"github.com/23technologies/23kectl/pkg/install"
+	"github.com/23technologies/23kectl/pkg/logger"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"os"
 )
 
 // installCmd represents the install command
@@ -31,16 +33,26 @@ for the installation.
 
 Dependent on your relationship with 23T you will be charged for using 23KE.
 `,
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
+		// todo check required flags
+
 		config := install.KeConfig{}
 		viper.ReadInConfig()
 		install.UnmarshalKeConfig(&config)
 
 		kubeConfig, err := cmd.Flags().GetString("kubeconfig")
 		if err != nil {
-			panic(err)
+			return err
 		}
-		install.Install(kubeConfig, &config)
+
+		err = install.Install(kubeConfig, &config)
+
+		if err != nil {
+			logger.Get().Error(err, "An unexpected error occurred.")
+			os.Exit(1)
+		}
+
+		return nil
 	},
 }
 

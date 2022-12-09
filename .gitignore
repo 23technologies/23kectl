@@ -19,3 +19,4 @@ config.yaml
 kubeconfig
 out.yaml
 23kectl
+log.txt

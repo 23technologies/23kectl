@@ -51,12 +51,16 @@ func generateDeployKey(kubeClient client.WithWatch, secretName string, repoUrl s
 
 		// generate the flux source secret manifest and store it as []byte in the shootResources
 		secManifest, err := sourcesecret.Generate(sourceSecOpts)
-		common.Panic(err)
+		if err != nil {
+			return nil, err
+		}
 		// lastly, also deploy the flux source secret into the projectNamespace in the seed cluster
 		// in order to reuse it, when other shoots are created
 		err = k8syaml.Unmarshal([]byte(secManifest.Content), &fluxRepoSecret)
 
-		common.Panic(err)
+		if err != nil {
+			return nil, err
+		}
 		fluxRepoSecret.SetNamespace(common.FLUX_NAMESPACE)
 
 		fmt.Println(`I created an ssh key for you.`)

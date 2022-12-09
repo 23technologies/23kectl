@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/23technologies/23kectl/pkg/common"
+	"github.com/23technologies/23kectl/pkg/logger"
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/fatih/color"
 	"github.com/mitchellh/mapstructure"
@@ -25,27 +26,50 @@ import (
 
 // install ...
 
-func Install(kubeconfig string, keConfiguration *KeConfig) {
+func Install(kubeconfig string, keConfiguration *KeConfig) error {
+	log := logger.Get("Install")
 
+	var err error
 	var kubeconfigArgs = genericclioptions.NewConfigFlags(false)
 	kubeconfigArgs.KubeConfig = &kubeconfig
 
 	var kubeclientOptions = new(runclient.Options)
 	kubeClient, err := utils.KubeClient(kubeconfigArgs, kubeclientOptions)
 	if err != nil {
-		err := fmt.Errorf("error during creation of kubeclient %s", err)
-		fmt.Println(err.Error())
-		return
+		log.Error(err, "Couldn't create kubeclient")
+		return err
 	}
 
-	installFlux(kubeClient, kubeconfigArgs, kubeclientOptions)
+	err = installFlux(kubeClient, kubeconfigArgs, kubeclientOptions)
+	if err != nil {
+		log.Error(err, "Couldn't install flux")
+		return err
+	}
 
-	completeKeConfig(kubeClient)
-	UnmarshalKeConfig(keConfiguration)
-	viper.WriteConfig()
+	err = completeKeConfig(kubeClient)
+	if err != nil {
+		return err
+	}
 
-	queryAdminConfig()
-	queryBaseClusterConfig()
+	err = UnmarshalKeConfig(keConfiguration)
+	if err != nil {
+		return err
+	}
+
+	err = viper.WriteConfig()
+	if err != nil {
+		log.Info("Viper couldn't write config file", "error", err)
+	}
+
+	err = queryAdminConfig()
+	if err != nil {
+		return err
+	}
+
+	err = queryBaseClusterConfig()
+	if err != nil {
+		return err
+	}
 
 	// Generate the needed deploy keys
 	fmt.Println("Generating 23ke deploy key")
@@ -53,32 +77,54 @@ func Install(kubeconfig string, keConfiguration *KeConfig) {
 Please contact the 23T administrators and ask them to add the key.
 Depending on your relationship with 23T, 23T will come up with a pricing model for you.`)
 	publicKeys23ke, err := generateDeployKey(kubeClient, common.BASE_23KE_GITREPO_KEY, common.BASE_23KE_GITREPO_URI)
-	common.Panic(err)
+	if err != nil {
+		return err
+	}
 
 	fmt.Println("Generating 23ke-config deploy key")
 	fmt.Println(`You will need to add this key to your git remote git repository.`)
 	common.PrintWarn("This key needs write access!")
 	publicKeysConfig, err := generateDeployKey(kubeClient, common.CONFIG_23KE_GITREPO_KEY, viper.GetString("admin.gitrepourl"))
-	common.Panic(err)
+	if err != nil {
+		return err
+	}
 
-	create23keConfigSecret(kubeClient)
+	err = create23keConfigSecret(kubeClient)
+	if err != nil {
+		return err
+	}
 
-	// 	installVPACRDs(kubeconfigArgs, kubeclientOptions)
+	err = createGitRepositories(kubeClient, publicKeys23ke)
+	if err != nil {
+		return err
+	}
 
-	createGitRepositories(kubeClient, publicKeys23ke)
+	err = createAddonsKs(kubeClient)
+	if err != nil {
+		return err
+	}
 
-	createAddonsKs(kubeClient)
-
-	createKustomizations(kubeClient)
+	err = createKustomizations(kubeClient)
+	if err != nil {
+		return err
+	}
 
 	// enable the provider extensions needed for a minimal setup
 	viper.Set("extensionsConfig.provider-"+viper.GetString("baseCluster.provider")+".enabled", true)
 	viper.Set("extensionsConfig."+common.DNS_PROVIDER_TO_PROVIDER[viper.GetString("domainConfig.provider")]+".enabled", true)
-	viper.WriteConfig()
-	viper.Unmarshal(keConfiguration)
+	err = viper.WriteConfig()
+	if err != nil {
+		return err
+	}
+	err = viper.Unmarshal(keConfiguration)
+	if err != nil {
+		return err
+	}
 
 	err = updateConfigRepo(*publicKeysConfig)
-	common.Panic(err)
+	if err != nil {
+		return err
+	}
 
 	// todo: show some kind of progress bar
 
@@ -87,9 +133,10 @@ Depending on your relationship with 23T, 23T will come up with a pricing model f
 	fmt.Println("Awesome. Your gardener installation should be up within 10 minutes.")
 	fmt.Printf("Once it's done you can login as %s.\n", color.BlueString(keConfiguration.Admin.Email))
 	fmt.Printf("Go kill some time by eagerly pressing F5 on https://dashboard.%s\n", color.BlueString(keConfiguration.DomainConfig.Domain))
+	return nil
 }
 
-func completeKeConfig(kubeClient client.WithWatch) {
+func completeKeConfig(kubeClient client.WithWatch) error {
 
 	viper.SetDefault("dashboard.sessionSecret", common.RandHex(20))
 	viper.SetDefault("dashboard.clientSecret", common.RandHex(20))
@@ -129,9 +176,13 @@ func completeKeConfig(kubeClient client.WithWatch) {
 				}
 				var queryResult string
 				err := survey.AskOne(prompt, &queryResult, withValidator("required,cidr"))
+				exitOnCtrlC(err)
+				if err != nil {
+					return err
+				}
 				viper.Set("gardenlet.seedPodCidr", queryResult)
 				viper.WriteConfig()
-				handleErr(err)
+
 			} else {
 				viper.Set("gardenlet.seedPodCidr", ciliumConfig.Data["cluster-pool-ipv4-cidr"])
 			}
@@ -164,19 +215,27 @@ func completeKeConfig(kubeClient client.WithWatch) {
 		}
 		viper.Set("gardener.clusterIP", clusterIp.String())
 	}
+
+	return nil
 }
 
-func getKeConfig() *KeConfig {
+func getKeConfig() (*KeConfig, error) {
 	keConfig := new(KeConfig)
-	UnmarshalKeConfig(keConfig)
-	return keConfig
+	err := UnmarshalKeConfig(keConfig)
+	if err != nil {
+		return nil, nil
+	}
+
+	return keConfig, nil
 }
 
 // unmarshalKeConfig ...
-func UnmarshalKeConfig(config *KeConfig) {
+func UnmarshalKeConfig(config *KeConfig) error {
 
 	err := viper.Unmarshal(config)
-	common.Panic(err)
+	if err != nil {
+		return err
+	}
 
 	_, ok := (config.DomainConfig.Credentials).(map[string]interface{})
 	if ok {
@@ -190,7 +249,10 @@ func UnmarshalKeConfig(config *KeConfig) {
 			creds = dnsCredentialsAWS53{}
 		}
 		err = mapstructure.Decode(config.DomainConfig.Credentials, &creds)
-		common.Panic(err)
+		if err != nil {
+			return err
+		}
 		config.DomainConfig.Credentials = creds
 	}
+	return nil
 }

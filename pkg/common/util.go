@@ -20,7 +20,7 @@ import (
 	"github.com/akrennmair/slice"
 )
 
-func Panic(err error) {
+func _Panic(err error) {
 	if err != nil {
 		panic(err.Error())
 	}

@@ -9,6 +9,8 @@ import (
 )
 
 func main() {
-	logger.Init()
+	disposeLogger := logger.Init()
+	defer disposeLogger()
+
 	cmd.Execute()
 }

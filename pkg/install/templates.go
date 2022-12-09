@@ -85,23 +85,9 @@ func makeTemplate() *template.Template {
 
 //go:embed templates
 var embedFS embed.FS
-
-var localTemplate *template.Template
-
-func getLocalTemplate() *template.Template {
-	if localTemplate == nil {
-		tpl, err := makeTemplate().ParseFS(embedFS, "templates/local/*.yaml")
-		common.Panic(err)
-
-		localTemplate = tpl
-	}
-
-	return localTemplate
-}
-
 var configTemplate *template.Template
 
-func getConfigTemplate() *template.Template {
+func getConfigTemplate() (*template.Template, error) {
 	if configTemplate == nil {
 		templateRoot := "templates/config"
 		templatePattern := regexp.MustCompile(`\.yaml$`)
@@ -135,18 +121,28 @@ func getConfigTemplate() *template.Template {
 
 			return nil
 		})
-		common.Panic(err)
+		if err != nil {
+			return nil, err
+		}
 
 		configTemplate = tpl
 	}
 
-	return configTemplate
+	return configTemplate, nil
 }
 
 func writeConfigDir(filesystem billy.Filesystem, gitRoot string) error {
-	keConfig := getKeConfig()
+	keConfig, err := getKeConfig()
+	if err != nil {
+		return err
+	}
 
-	for _, tpl := range getConfigTemplate().Templates() {
+	configTemplate, err := getConfigTemplate()
+	if err != nil {
+		return err
+	}
+
+	for _, tpl := range configTemplate.Templates() {
 		name := tpl.Name()
 
 		destPath := path.Join(gitRoot, name)

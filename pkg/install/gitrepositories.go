@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/23technologies/23kectl/pkg/logger"
 	"time"
 
 	"github.com/23technologies/23kectl/pkg/common"
@@ -23,19 +24,25 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func createGitRepositories(kubeClient client.WithWatch, keys *ssh.PublicKeys) {
+func createGitRepositories(kubeClient client.WithWatch, keys *ssh.PublicKeys) error {
+	log := logger.Get("createGitRepositories")
 	var err error
 
 	if !viper.IsSet("version") {
 		tags, err := common.List23keTags(keys)
-		common.Panic(err)
+		if err != nil {
+			return err
+		}
 		prompt := &survey.Select{
 			Message: "Select the 23ke version you want to install",
 			Options: tags,
 		}
 		var queryResult string
 		err = survey.AskOne(prompt, &queryResult, withValidator("required"))
-		handleErr(err)
+		exitOnCtrlC(err)
+		if err != nil {
+			return err
+		}
 		viper.Set("version", queryResult)
 		viper.WriteConfig()
 	}
@@ -62,7 +69,7 @@ func createGitRepositories(kubeClient client.WithWatch, keys *ssh.PublicKeys) {
 
 	err = kubeClient.Create(context.TODO(), &gitrepo23ke, &client.CreateOptions{})
 	if err != nil {
-		common.PrintErr(err)
+		log.Info("Couldn't create git source "+common.BASE_23KE_GITREPO_NAME, "error", err)
 	}
 
 	gitRepoUrl := viper.GetString("admin.gitrepourl")
@@ -88,11 +95,13 @@ func createGitRepositories(kubeClient client.WithWatch, keys *ssh.PublicKeys) {
 
 	err = kubeClient.Create(context.TODO(), &gitrepo23keconfig, &client.CreateOptions{})
 	if err != nil {
-		common.PrintErr(err)
+		log.Info("Couldn't create git source "+common.CONFIG_23KE_GITREPO_NAME, "error", err)
 	}
+	return nil
 }
 
 func updateConfigRepo(publicKeys ssh.PublicKeys) error {
+	log := logger.Get("updateConfigRepo")
 	gitRepo := viper.GetString("admin.gitrepourl")
 
 	var err error
@@ -120,7 +129,7 @@ func updateConfigRepo(publicKeys ssh.PublicKeys) error {
 
 	worktree, err := repository.Worktree()
 	if err != nil {
-		common.PrintErr(err)
+		log.Info("Couldn't get worktree", "error", err)
 	}
 
 	// if the remoteRef was found we either checkout and create a local copy of the remote branch,
@@ -133,41 +142,35 @@ func updateConfigRepo(publicKeys ssh.PublicKeys) error {
 				Branch: plumbing.NewBranchReferenceName(branchName),
 				Create: true,
 			})
-			common.Panic(err)
+			if err != nil {
+				return err
+			}
 		} else {
 			err = worktree.Checkout(&git.CheckoutOptions{
 				Branch: plumbing.NewBranchReferenceName(branchName),
 			})
-			common.Panic(err)
+			if err != nil {
+				return err
+			}
 		}
 	}
 
-	_, err = worktree.Remove(".")
-	if err != nil {
-		common.PrintErr(err)
-	}
+	_, _ = worktree.Remove(".")
 
 	fmt.Printf("Writing new config\n")
 
 	err = writeConfigDir(workTreeFs, ".")
 	if err != nil {
-		common.PrintErr(err)
+		return err
 	}
 
-	_, err = worktree.Add(".")
-	if err != nil {
-		common.PrintErr(err)
-	}
-
-	status, err := worktree.Status()
-	if err != nil {
-		common.PrintErr(err)
-	}
+	_, _ = worktree.Add(".")
+	status, _ := worktree.Status()
 
 	if status.IsClean() {
-		fmt.Printf("Git reports no changes to config repo\n")
+		log.Info("Worktree is clean. Not committing anything.")
 	} else {
-		fmt.Printf("Commiting to config repo\n")
+		log.Info("Commiting to config repo")
 		_, err = worktree.Commit("Config update through 23kectl", &git.CommitOptions{
 			Author: &object.Signature{
 				Name:  "23ke Ctl",
@@ -176,14 +179,16 @@ func updateConfigRepo(publicKeys ssh.PublicKeys) error {
 			},
 		})
 		if err != nil {
-			common.PrintErr(err)
+			return err
 		}
 
-		fmt.Printf("Pushing to config repo\n")
+		log.Info("Pushing to config repo")
 		err = repository.Push(&git.PushOptions{
 			Auth: &publicKeys,
 		})
-		common.PrintErr(err)
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil

@@ -4,39 +4,51 @@ import (
 	"github.com/bombsimon/logrusr/v4"
 	"github.com/go-logr/logr"
 	"github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus/hooks/writer"
+	"io"
 	"os"
 )
 
-var _logger logr.Logger
+var logger logr.Logger
 
-func Init() {
-	var intLevel logrus.Level
-	var err error
+// Init returns a teardown function to dispose off resources like open files.
+func Init() func() {
+	logrusLog := logrus.New()
+	logrusLog.SetLevel(logrus.DebugLevel)
+	logrusLog.SetOutput(io.Discard)
 
-	stringLevel := os.Getenv("LOG")
+	logrusLog.AddHook(&writer.Hook{
+		Writer: os.Stderr,
+		LogLevels: []logrus.Level{
+			logrus.ErrorLevel,
+		},
+	})
 
-	if stringLevel == "" {
-		intLevel = logrus.InfoLevel
-	} else {
-		intLevel, err = logrus.ParseLevel(stringLevel)
-		if err != nil {
-			panic(err)
+	file, _ := os.OpenFile("log.txt", os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0600)
+	_, _ = file.WriteString("============================================================\n")
+
+	logrusLog.AddHook(&writer.Hook{
+		Writer: file,
+		LogLevels: []logrus.Level{
+			logrus.ErrorLevel,
+			logrus.InfoLevel,
+			logrus.DebugLevel,
+		},
+	})
+
+	logger = logrusr.New(logrusLog)
+
+	return func() {
+		if file != nil {
+			file.Close()
 		}
 	}
-
-	intLevel = logrus.TraceLevel
-
-	logrusLog := logrus.New()
-	logrusLog.SetLevel(intLevel)
-
-	_logger = logrusr.New(logrusLog)
 }
 
 func Get(name ...string) logr.Logger {
 	if len(name) == 1 {
-		return _logger.WithName(name[0])
+		return logger.WithName(name[0])
 	} else {
-		return _logger
+		return logger
 	}
 }
-

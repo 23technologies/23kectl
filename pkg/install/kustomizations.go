@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/23technologies/23kectl/pkg/common"
+	"github.com/23technologies/23kectl/pkg/logger"
 	"github.com/spf13/viper"
 	"time"
 
@@ -12,7 +13,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func createKustomizations(kubeClient client.WithWatch) {
+func createKustomizations(kubeClient client.WithWatch) error {
+	var err error
+	log := logger.Get("createKustomizations")
+
 	ks23keBase := kustomizecontrollerv1beta2.Kustomization{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "kustomize.toolkit.fluxcd.io/v1beta2",
@@ -36,7 +40,10 @@ func createKustomizations(kubeClient client.WithWatch) {
 		Status: kustomizecontrollerv1beta2.KustomizationStatus{},
 	}
 
-	kubeClient.Create(context.TODO(), &ks23keBase, &client.CreateOptions{})
+	err = kubeClient.Create(context.TODO(), &ks23keBase, &client.CreateOptions{})
+	if err != nil {
+		log.Info("Couldn't create ks "+common.BASE_23KE_KS_NAME, "error", err)
+	}
 
 	ks23keConfig := kustomizecontrollerv1beta2.Kustomization{
 		TypeMeta: metav1.TypeMeta{
@@ -61,16 +68,19 @@ func createKustomizations(kubeClient client.WithWatch) {
 		Status: kustomizecontrollerv1beta2.KustomizationStatus{},
 	}
 
-	err := kubeClient.Create(context.TODO(), &ks23keConfig, &client.CreateOptions{})
-
+	err = kubeClient.Create(context.TODO(), &ks23keConfig, &client.CreateOptions{})
 	if err != nil {
-		common.PrintErr(err)
+		log.Info("Couldn't create ks "+common.CONFIG_KS_NAME, "error", err)
 	}
+
+	return nil
 }
 
-func createAddonsKs(kubeClient client.WithWatch) {
+func createAddonsKs(kubeClient client.WithWatch) error {
+	log := logger.Get("createAddonsKs")
+
 	if viper.GetBool("baseCluster.hasVerticalPodAutoscaler") {
-		return
+		return nil
 	}
 
 	fmt.Println("Creating addons ks. This will install VPA crds")
@@ -98,8 +108,9 @@ func createAddonsKs(kubeClient client.WithWatch) {
 	}
 
 	err := kubeClient.Create(context.TODO(), &addonsKs, &client.CreateOptions{})
-
 	if err != nil {
-		common.PrintErr(err)
+		log.Info("Couldn't create ks "+common.BASE_ADDONS_23KE_KS_NAME, "error", err)
 	}
+
+	return nil
 }
