@@ -20,12 +20,6 @@ import (
 	"github.com/akrennmair/slice"
 )
 
-func _Panic(err error) {
-	if err != nil {
-		panic(err.Error())
-	}
-}
-
 func PressEnterToContinue() {
 	fmt.Println("Press the Enter Key to continue")
 	fmt.Scanln()
