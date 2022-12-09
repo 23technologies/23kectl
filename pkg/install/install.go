@@ -3,14 +3,16 @@ package install
 import (
 	"context"
 	"fmt"
-	"github.com/23technologies/23kectl/pkg/common"
-	"github.com/fatih/color"
-	"github.com/mitchellh/mapstructure"
-	"github.com/spf13/viper"
 	"net"
 	"strings"
 
-	"github.com/23technologies/23kectl/pkg/flux_utils"
+	"github.com/23technologies/23kectl/pkg/common"
+	"github.com/AlecAivazis/survey/v2"
+	"github.com/fatih/color"
+	"github.com/mitchellh/mapstructure"
+	"github.com/spf13/viper"
+
+	utils "github.com/23technologies/23kectl/pkg/flux_utils"
 
 	runclient "github.com/fluxcd/pkg/runtime/client"
 	corev1 "k8s.io/api/core/v1"
@@ -98,7 +100,7 @@ func completeKeConfig(kubeClient client.WithWatch) {
 		// We assume that either calico or cilium are used as CNI
 		// Therefore, we search for an ippool with name "default-ipv4-ippool" for the calico case.
 		// In the cilium case, we search for the configmap "cilium-config" in the kube-system namespace
-		// If none of these are found, we throw an error.
+		// If none of these are found, we ask the user for input
 		ipPool := unstructured.Unstructured{}
 		gvk := schema.GroupVersionKind{
 			Group:   "crd.projectcalico.org",
@@ -120,10 +122,19 @@ func completeKeConfig(kubeClient client.WithWatch) {
 				Name:      "cilium-config",
 			}, &ciliumConfig)
 			if err != nil {
-				fmt.Println("I could not find the cilium-config configmap in your kube-systemnamespace")
-				panic(err)
+				// we did not find calico or cilium related config
+				// let's prompt for the Pod CIDR
+				prompt := &survey.Input{
+					Message: "Please enter the pod CIDR of your base cluster in the form: x.x.x.x/y",
+				}
+				var queryResult string
+				err := survey.AskOne(prompt, &queryResult, withValidator("required,cidr"))
+				viper.Set("gardenlet.seedPodCidr", queryResult)
+				viper.WriteConfig()
+				handleErr(err)
+			} else {
+				viper.Set("gardenlet.seedPodCidr", ciliumConfig.Data["cluster-pool-ipv4-cidr"])
 			}
-			viper.Set("gardenlet.seedPodCidr", ciliumConfig.Data["cluster-pool-ipv4-cidr"])
 		}
 	}
 
