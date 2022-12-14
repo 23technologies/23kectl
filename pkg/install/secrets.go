@@ -71,8 +71,8 @@ func createBucketSecret(kubeClient client.WithWatch) error {
 			Namespace: common.FLUX_NAMESPACE,
 		},
 		Data: map[string][]byte{
-			"accesskey": viper.Get("bucket.accesskey").([]byte),
-			"secretkey": viper.Get("bucket.secretkey").([]byte),
+			"accesskey": []byte(viper.GetString("bucket.accesskey")),
+			"secretkey": []byte(viper.GetString("bucket.secretkey")),
 		},
 		Type: "Opaque",
 	}

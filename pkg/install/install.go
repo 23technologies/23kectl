@@ -40,14 +40,16 @@ func Install(kubeconfig string, keConfiguration *KeConfig) error {
 		return err
 	}
 
-	err = createBucketSecret(kubeClient)
-	if err != nil {
-		return err
-	}
 
 	err = installFlux(kubeClient, kubeconfigArgs, kubeclientOptions)
 	if err != nil {
 		log.Error(err, "Couldn't install flux")
+		return err
+	}
+
+
+	err = createBucketSecret(kubeClient)
+	if err != nil {
 		return err
 	}
 
