@@ -39,7 +39,7 @@ stringData:
 
 func createBucketSecret(kubeClient client.WithWatch) error {
 
-	if !viper.IsSet("accesskey") {
+	if !viper.IsSet("bucket.accesskey") {
 		prompt := &survey.Input{
 			Message: "Please enter the accesskey, you got from 23T. This is part of your 23ke license.",
 		}
@@ -49,10 +49,10 @@ func createBucketSecret(kubeClient client.WithWatch) error {
 		if err != nil {
 			return err
 		}
-		viper.Set("accesskey", queryResult)
+		viper.Set("bucket.accesskey", queryResult)
 	}
 
-	if !viper.IsSet("secretkey") {
+	if !viper.IsSet("bucket.secretkey") {
 		prompt := &survey.Input{
 			Message: "Please enter the secretkey, you got from 23T. This is part of your 23ke license.",
 		}
@@ -62,7 +62,7 @@ func createBucketSecret(kubeClient client.WithWatch) error {
 		if err != nil {
 			return err
 		}
-		viper.Set("secretkey", queryResult)
+		viper.Set("bucket.secretkey", queryResult)
 	}
 
 	sec := corev1.Secret{
@@ -71,8 +71,8 @@ func createBucketSecret(kubeClient client.WithWatch) error {
 			Namespace: common.FLUX_NAMESPACE,
 		},
 		Data: map[string][]byte{
-			"accesskey": viper.Get("accesskey").([]byte),
-			"secretkey": viper.Get("secretkey").([]byte),
+			"accesskey": viper.Get("bucket.accesskey").([]byte),
+			"secretkey": viper.Get("bucket.secretkey").([]byte),
 		},
 		Type: "Opaque",
 	}

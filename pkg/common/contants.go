@@ -33,6 +33,5 @@ const CONFIG_KS_NAME = "23ke-config"
 const CONFIG_23KE_GITREPO_NAME = "23ke-config"
 const CONFIG_23KE_GITREPO_KEY = "23ke-config-key"
 
-const BUCKET_ENDPOINT = "minio.ingress.minio-test.23t-test.okeanos.dev"
 const BUCKET_SECRET_NAME = "bucket-credentials"
 const BUCKET_NAME = "23ke"

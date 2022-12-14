@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/23technologies/23kectl/pkg/logger"
+	"github.com/AlecAivazis/survey/v2"
 
 	"github.com/23technologies/23kectl/pkg/common"
 
@@ -36,6 +37,20 @@ func create23keBucket(kubeClient client.WithWatch) error {
 		}
 	}
 
+	if !viper.IsSet("bucket.endpoint") {
+		prompt := &survey.Input{
+			Message: "Please enter the bucket endpoint, you got from 23T. This is part of your 23ke license.",
+		}
+		var queryResult string
+		err := survey.AskOne(prompt, &queryResult, withValidator("required"))
+		exitOnCtrlC(err)
+		if err != nil {
+			return err
+		}
+		viper.Set("bucket.endpoint", queryResult)
+	}
+
+
 	bucket := viper.GetString("version")
 
 	bucket23ke := sourcecontrollerv1beta2.Bucket{
@@ -50,7 +65,7 @@ func create23keBucket(kubeClient client.WithWatch) error {
 		Spec:       sourcecontrollerv1beta2.BucketSpec{
 			Provider:   "",
 			BucketName: bucket,
-			Endpoint:   common.BUCKET_ENDPOINT,
+			Endpoint:   viper.GetString("bucket.endpoint"),
 			SecretRef:  &meta.LocalObjectReference{
 				Name: common.BUCKET_SECRET_NAME,
 			},
