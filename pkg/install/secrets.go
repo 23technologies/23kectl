@@ -4,9 +4,12 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+
+	"github.com/23technologies/23kectl/pkg/common"
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/spf13/viper"
 	corev1 "k8s.io/api/core/v1"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	k8syaml "sigs.k8s.io/yaml"
 )
@@ -33,6 +36,58 @@ stringData:
       global: # means used for ingress, gardener defaultDomain and internalDomain
         {{- nindent 8 (toYaml .DomainConfig) }}
 `
+
+func createBucketSecret(kubeClient client.WithWatch) error {
+
+	if !viper.IsSet("bucket.accesskey") {
+		prompt := &survey.Input{
+			Message: "Please enter the accesskey, you got from 23T. This is part of your 23ke license.",
+		}
+		var queryResult string
+		err := survey.AskOne(prompt, &queryResult, withValidator("required"))
+		exitOnCtrlC(err)
+		if err != nil {
+			return err
+		}
+		viper.Set("bucket.accesskey", queryResult)
+	}
+
+	if !viper.IsSet("bucket.secretkey") {
+		prompt := &survey.Input{
+			Message: "Please enter the secretkey, you got from 23T. This is part of your 23ke license.",
+		}
+		var queryResult string
+		err := survey.AskOne(prompt, &queryResult, withValidator("required"))
+		exitOnCtrlC(err)
+		if err != nil {
+			return err
+		}
+		viper.Set("bucket.secretkey", queryResult)
+	}
+
+	sec := corev1.Secret{
+		ObjectMeta: v1.ObjectMeta{
+			Name:      common.BUCKET_SECRET_NAME,
+			Namespace: common.FLUX_NAMESPACE,
+		},
+		Data: map[string][]byte{
+			"accesskey": []byte(viper.GetString("bucket.accesskey")),
+			"secretkey": []byte(viper.GetString("bucket.secretkey")),
+		},
+		Type: "Opaque",
+	}
+
+	err := kubeClient.Create(context.Background(), &sec)
+	if err != nil {
+		err = kubeClient.Update(context.Background(), &sec)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+
+}
 
 func create23keConfigSecret(kubeClient client.WithWatch) error {
 	// Create the 23ke-config secret

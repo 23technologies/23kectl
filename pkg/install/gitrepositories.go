@@ -4,12 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/23technologies/23kectl/pkg/logger"
 	"time"
+
+	"github.com/23technologies/23kectl/pkg/logger"
+	"github.com/AlecAivazis/survey/v2"
 
 	"github.com/23technologies/23kectl/pkg/common"
 
-	"github.com/AlecAivazis/survey/v2"
 	"github.com/fluxcd/pkg/apis/meta"
 	sourcecontrollerv1beta2 "github.com/fluxcd/source-controller/api/v1beta2"
 	"github.com/go-git/go-billy/v5/memfs"
@@ -24,53 +25,66 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func createGitRepositories(kubeClient client.WithWatch, keys *ssh.PublicKeys) error {
-	log := logger.Get("createGitRepositories")
+func create23keBucket(kubeClient client.WithWatch) error {
+
+	log := logger.Get("create23kebucket")
 	var err error
 
 	if !viper.IsSet("version") {
-		tags, err := common.List23keTags(keys)
+		err = fmt.Errorf("23ke version must be set in advance. Check your config.yaml")
 		if err != nil {
 			return err
 		}
-		prompt := &survey.Select{
-			Message: "Select the 23ke version you want to install",
-			Options: tags,
+	}
+
+	if !viper.IsSet("bucket.endpoint") {
+		prompt := &survey.Input{
+			Message: "Please enter the bucket endpoint, you got from 23T. This is part of your 23ke license.",
 		}
 		var queryResult string
-		err = survey.AskOne(prompt, &queryResult, withValidator("required"))
+		err := survey.AskOne(prompt, &queryResult, withValidator("required"))
 		exitOnCtrlC(err)
 		if err != nil {
 			return err
 		}
-		viper.Set("version", queryResult)
-		viper.WriteConfig()
+		viper.Set("bucket.endpoint", queryResult)
 	}
 
-	tag := viper.GetString("version")
 
-	gitrepo23ke := sourcecontrollerv1beta2.GitRepository{
-		TypeMeta: metav1.TypeMeta{
+	bucket := viper.GetString("version")
+
+	bucket23ke := sourcecontrollerv1beta2.Bucket{
+		TypeMeta:   metav1.TypeMeta{
 			APIVersion: "source.toolkit.fluxcd.io/v1beta2",
-			Kind:       "GitRepository",
+			Kind:       "Bucket",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      common.BASE_23KE_GITREPO_NAME,
+			Name:      common.BUCKET_NAME,
 			Namespace: common.FLUX_NAMESPACE,
 		},
-		Spec: sourcecontrollerv1beta2.GitRepositorySpec{
-			URL:       common.BASE_23KE_GITREPO_URI,
-			SecretRef: &meta.LocalObjectReference{Name: common.BASE_23KE_GITREPO_KEY},
-			Interval:  metav1.Duration{Duration: time.Minute},
-			Reference: &sourcecontrollerv1beta2.GitRepositoryRef{Tag: tag},
+		Spec:       sourcecontrollerv1beta2.BucketSpec{
+			Provider:   "",
+			BucketName: bucket,
+			Endpoint:   viper.GetString("bucket.endpoint"),
+			SecretRef:  &meta.LocalObjectReference{
+				Name: common.BUCKET_SECRET_NAME,
+			},
+			Interval:   metav1.Duration{Duration: time.Minute},
 		},
-		Status: sourcecontrollerv1beta2.GitRepositoryStatus{},
 	}
 
-	err = kubeClient.Create(context.TODO(), &gitrepo23ke, &client.CreateOptions{})
+	err = kubeClient.Create(context.TODO(), &bucket23ke, &client.CreateOptions{})
 	if err != nil {
-		log.Info("Couldn't create git source "+common.BASE_23KE_GITREPO_NAME, "error", err)
+		log.Info("Couldn't create bucket source " + common.BUCKET_NAME, "error", err)
 	}
+	return nil
+}
+
+
+
+func createGitRepositories(kubeClient client.WithWatch) error {
+	log := logger.Get("createGitRepositories")
+	var err error
 
 	gitRepoUrl := viper.GetString("admin.gitrepourl")
 	gitRepoBranch := viper.GetString("admin.gitrepobranch")

@@ -33,8 +33,8 @@ func createKustomizations(kubeClient client.WithWatch) error {
 			Path:  "./",
 			Prune: true,
 			SourceRef: kustomizecontrollerv1beta2.CrossNamespaceSourceReference{
-				Kind: "GitRepository",
-				Name: common.BASE_23KE_GITREPO_NAME,
+				Kind: "Bucket",
+				Name: common.BUCKET_NAME,
 			},
 		},
 		Status: kustomizecontrollerv1beta2.KustomizationStatus{},
@@ -100,8 +100,8 @@ func createAddonsKs(kubeClient client.WithWatch) error {
 			Path:  "./base-addons",
 			Prune: false,
 			SourceRef: kustomizecontrollerv1beta2.CrossNamespaceSourceReference{
-				Kind: "GitRepository",
-				Name: common.BASE_23KE_GITREPO_NAME,
+				Kind: "Bucket",
+				Name: common.BUCKET_NAME,
 			},
 		},
 		Status: kustomizecontrollerv1beta2.KustomizationStatus{},

@@ -46,6 +46,11 @@ func Install(kubeconfig string, keConfiguration *KeConfig) error {
 		return err
 	}
 
+	err = createBucketSecret(kubeClient)
+	if err != nil {
+		return err
+	}
+
 	err = completeKeConfig(kubeClient)
 	if err != nil {
 		return err
@@ -71,16 +76,6 @@ func Install(kubeconfig string, keConfiguration *KeConfig) error {
 		return err
 	}
 
-	// Generate the needed deploy keys
-	fmt.Println("Generating 23ke deploy key")
-	fmt.Println(`This key will need to be added by 23T to the 23KE repository.
-Please contact the 23T administrators and ask them to add the key.
-Depending on your relationship with 23T, 23T will come up with a pricing model for you.`)
-	publicKeys23ke, err := generateDeployKey(kubeClient, common.BASE_23KE_GITREPO_KEY, common.BASE_23KE_GITREPO_URI)
-	if err != nil {
-		return err
-	}
-
 	fmt.Println("Generating 23ke-config deploy key")
 	fmt.Println(`You will need to add this key to your git remote git repository.`)
 	common.PrintWarn("This key needs write access!")
@@ -94,7 +89,12 @@ Depending on your relationship with 23T, 23T will come up with a pricing model f
 		return err
 	}
 
-	err = createGitRepositories(kubeClient, publicKeys23ke)
+	err = create23keBucket(kubeClient)
+	if err != nil {
+		return err
+	}
+
+	err = createGitRepositories(kubeClient)
 	if err != nil {
 		return err
 	}
