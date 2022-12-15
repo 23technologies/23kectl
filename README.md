@@ -13,10 +13,6 @@ Moreover, you need:
 5. Knowledge about Flux, Helm and Kustomize
 
 ## Quickstart
-Make sure that your host has all github.com hosts keys in the ~/.ssh/known_hosts file:
-```shell
-ssh-keyscan github.com >> ~/.ssh/known_hosts
-```
 
 Run 23kectl
 ```shell
