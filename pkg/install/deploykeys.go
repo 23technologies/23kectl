@@ -46,7 +46,7 @@ func generateDeployKey(kubeClient client.WithWatch, secretName string, repoUrl s
 		// define some options for the generation of the flux source secret
 		sourceSecOpts := sourcesecret.MakeDefaultOptions()
 		sourceSecOpts.PrivateKeyAlgorithm = "ed25519"
-		sourceSecOpts.SSHHostname = repourl.Hostname()
+		sourceSecOpts.SSHHostname = repourl.Host
 		sourceSecOpts.Name = secretName
 
 		// generate the flux source secret manifest and store it as []byte in the shootResources
