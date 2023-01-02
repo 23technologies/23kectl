@@ -2,7 +2,7 @@
 
 ## Requirements
 
-First and foremost: You can only install 23ke via this tool, if the 23T administrators add an shh deploy key to the 23ke upstream repository. 23kectl will stop at the point where the ssh key is required to read the upstream repository. Therefore, you definitely need to contact us and send us the public key.
+First and foremost: You can only install 23ke via this tool, if the 23T administrators add an ssh deploy key to the 23ke upstream repository. 23kectl will stop at the point where the ssh key is required to read the upstream repository. Therefore, you definitely need to contact us and send us the public key.
 
 Moreover, you need:
 
