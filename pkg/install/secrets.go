@@ -16,29 +16,6 @@ import (
 	k8syaml "sigs.k8s.io/yaml"
 )
 
-const templateString = `
-apiVersion: v1
-kind: Secret
-metadata:
-  name: 23ke-config
-  namespace: flux-system
-type: Opaque
-stringData:
-  values.yaml: |
-    clusterIdentity: {{ .ClusterIdentity }}
-    dashboard:
-      clientSecret: {{ .Dashboard.ClientSecret }}
-      sessionSecret: {{ .Dashboard.SessionSecret }}
-    kubeApiServer:
-      basicAuthPassword: {{ .KubeApiServer.BasicAuthPassword }}
-    issuer:
-      acme:
-        email: {{ .Issuer.Acme.Email }}
-    domains:
-      global: # means used for ingress, gardener defaultDomain and internalDomain
-        {{- nindent 8 (toYaml .DomainConfig) }}
-`
-
 func createBucketSecret(kubeClient client.WithWatch) error {
 
 	if !viper.IsSet("bucket.accesskey") {
