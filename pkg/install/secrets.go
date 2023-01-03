@@ -7,6 +7,8 @@ import (
 
 	"github.com/23technologies/23kectl/pkg/common"
 	"github.com/AlecAivazis/survey/v2"
+	"github.com/minio/minio-go/v7"
+	"github.com/minio/minio-go/v7/pkg/credentials"
 	"github.com/spf13/viper"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -123,9 +125,24 @@ func create23keConfigSecret(kubeClient client.WithWatch) error {
 
 	fmt.Println("Creating '23ke-config' secret")
 
-	buffer := bytes.Buffer{}
+	s3Client, err := minio.New(viper.GetString("bucket.endpoint"), &minio.Options{
+		Creds:  credentials.NewStaticV4(viper.GetString("bucket.accesskey"), viper.GetString("bucket.secretkey"), ""),
+		Secure: true,
+	})
+	if err != nil {
+		return err
+	}
 
-	tpl, err := makeTemplate().Parse(templateString)
+	obj, err := s3Client.GetObject(context.Background(), viper.GetString("version"),
+		"templates/23ke-config.yaml", minio.GetObjectOptions{})
+
+	stat, err := obj.Stat()
+
+	content := make([]byte, stat.Size)
+	obj.Read(content)
+
+	tpl, err := makeTemplate().Parse(string(content))
+
 	if err != nil {
 		return err
 	}
@@ -134,6 +151,7 @@ func create23keConfigSecret(kubeClient client.WithWatch) error {
 		return err
 	}
 
+	buffer := bytes.Buffer{}
 	err = tpl.Execute(&buffer, keConfig)
 	if err != nil {
 		return err
