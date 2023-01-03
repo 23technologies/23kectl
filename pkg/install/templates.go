@@ -115,7 +115,11 @@ func getConfigTemplate() (*template.Template, error) {
 			if err != nil {
 				return nil, err
 			}
+
 			stat, err := obj.Stat()
+			if err != nil {
+				return nil, err
+			}
 
 			name := strings.Replace(item.Key, templateRoot+"/", "", 1)
 			content := make([]byte, stat.Size)

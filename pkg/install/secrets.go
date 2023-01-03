@@ -112,8 +112,14 @@ func create23keConfigSecret(kubeClient client.WithWatch) error {
 
 	obj, err := s3Client.GetObject(context.Background(), viper.GetString("version"),
 		"templates/23ke-config.yaml", minio.GetObjectOptions{})
+	if err != nil {
+		return err
+	}
 
 	stat, err := obj.Stat()
+	if err != nil {
+		return err
+	}
 
 	content := make([]byte, stat.Size)
 	obj.Read(content)
