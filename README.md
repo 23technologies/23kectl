@@ -41,4 +41,4 @@ You can find a demo Gardener installation on [Okeanos](https://dashboard.okeanos
 
 ## Bigger Picture
 
-If you are interested in 23ke details you can checkout our documentation, which is yet to be written.
+If you are interested in 23ke details you can checkout our documentation, which is yet to be published. Please contact us, if you want to get a preview.
