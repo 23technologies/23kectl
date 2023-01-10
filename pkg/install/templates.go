@@ -1,18 +1,21 @@
 package install
 
 import (
-	"embed"
+	"context"
 	"fmt"
-	"github.com/23technologies/23kectl/pkg/common"
-	"io/fs"
 	"os"
 	"path"
-	"regexp"
 	"strings"
 	"text/template"
 
+	"github.com/23technologies/23kectl/pkg/common"
+	"github.com/spf13/viper"
+
 	"github.com/Masterminds/sprig/v3"
 	"github.com/go-git/go-billy/v5"
+
+	"github.com/minio/minio-go/v7"
+	"github.com/minio/minio-go/v7/pkg/credentials"
 	"gopkg.in/yaml.v3"
 )
 
@@ -83,51 +86,53 @@ func makeTemplate() *template.Template {
 	return tpl
 }
 
-//go:embed templates
-var embedFS embed.FS
 var configTemplate *template.Template
 
 func getConfigTemplate() (*template.Template, error) {
 	if configTemplate == nil {
 		templateRoot := "templates/config"
-		templatePattern := regexp.MustCompile(`\.yaml$`)
 
 		tpl := makeTemplate()
 
-		// We don't use tpl.ParseFS here to keep the folder structure in the template name.
-		err := fs.WalkDir(embedFS, templateRoot, func(path string, d fs.DirEntry, err error) error {
-			if err != nil {
-				fmt.Println(err)
-				return nil
-			}
-
-			if d.IsDir() {
-				return nil
-			}
-
-			if !templatePattern.MatchString(path) {
-				return nil
-			}
-
-			name := strings.Replace(path, templateRoot+"/", "", 1)
-			content, err := fs.ReadFile(embedFS, path)
-			if err != nil {
-				return err
-			}
-			_, err = tpl.New(name).Parse(string(content))
-			if err != nil {
-				return err
-			}
-
-			return nil
+		s3Client, err := minio.New(viper.GetString("bucket.endpoint"), &minio.Options{
+			Creds:  credentials.NewStaticV4(viper.GetString("bucket.accesskey"), viper.GetString("bucket.secretkey"), ""),
+			Secure: true,
 		})
 		if err != nil {
 			return nil, err
 		}
 
-		configTemplate = tpl
-	}
+		opts := minio.ListObjectsOptions{
+			Prefix:    templateRoot,
+			Recursive: true,
+		}
+		objList := s3Client.ListObjects(context.Background(), viper.GetString("version"), opts)
 
+		for item := range objList {
+
+			obj, err := s3Client.GetObject(context.Background(), viper.GetString("version"),
+				item.Key, minio.GetObjectOptions{})
+			if err != nil {
+				return nil, err
+			}
+
+			stat, err := obj.Stat()
+			if err != nil {
+				return nil, err
+			}
+
+			name := strings.Replace(item.Key, templateRoot+"/", "", 1)
+			content := make([]byte, stat.Size)
+			obj.Read(content)
+
+			_, err = tpl.New(name).Parse(string(content))
+			if err != nil {
+				return nil, err
+			}
+			configTemplate = tpl
+		}
+
+	}
 	return configTemplate, nil
 }
 
