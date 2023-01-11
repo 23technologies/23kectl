@@ -6,10 +6,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/23technologies/23kectl/pkg/logger"
-	"github.com/AlecAivazis/survey/v2"
-
 	"github.com/23technologies/23kectl/pkg/common"
+	"github.com/23technologies/23kectl/pkg/logger"
 
 	"github.com/fluxcd/pkg/apis/meta"
 	sourcecontrollerv1beta2 "github.com/fluxcd/source-controller/api/v1beta2"
@@ -30,31 +28,10 @@ func create23keBucket(kubeClient client.WithWatch) error {
 	log := logger.Get("create23kebucket")
 	var err error
 
-	if !viper.IsSet("version") {
-		err = fmt.Errorf("23ke version must be set in advance. Check your config.yaml")
-		if err != nil {
-			return err
-		}
-	}
-
-	if !viper.IsSet("bucket.endpoint") {
-		prompt := &survey.Input{
-			Message: "Please enter the bucket endpoint, you got from 23T. This is part of your 23ke license.",
-		}
-		var queryResult string
-		err := survey.AskOne(prompt, &queryResult, withValidator("required"))
-		exitOnCtrlC(err)
-		if err != nil {
-			return err
-		}
-		viper.Set("bucket.endpoint", queryResult)
-	}
-
-
 	bucket := viper.GetString("version")
 
 	bucket23ke := sourcecontrollerv1beta2.Bucket{
-		TypeMeta:   metav1.TypeMeta{
+		TypeMeta: metav1.TypeMeta{
 			APIVersion: "source.toolkit.fluxcd.io/v1beta2",
 			Kind:       "Bucket",
 		},
@@ -62,25 +39,23 @@ func create23keBucket(kubeClient client.WithWatch) error {
 			Name:      common.BUCKET_NAME,
 			Namespace: common.FLUX_NAMESPACE,
 		},
-		Spec:       sourcecontrollerv1beta2.BucketSpec{
+		Spec: sourcecontrollerv1beta2.BucketSpec{
 			Provider:   "",
 			BucketName: bucket,
 			Endpoint:   viper.GetString("bucket.endpoint"),
-			SecretRef:  &meta.LocalObjectReference{
+			SecretRef: &meta.LocalObjectReference{
 				Name: common.BUCKET_SECRET_NAME,
 			},
-			Interval:   metav1.Duration{Duration: time.Minute},
+			Interval: metav1.Duration{Duration: time.Minute},
 		},
 	}
 
 	err = kubeClient.Create(context.TODO(), &bucket23ke, &client.CreateOptions{})
 	if err != nil {
-		log.Info("Couldn't create bucket source " + common.BUCKET_NAME, "error", err)
+		log.Info("Couldn't create bucket source "+common.BUCKET_NAME, "error", err)
 	}
 	return nil
 }
-
-
 
 func createGitRepositories(kubeClient client.WithWatch) error {
 	log := logger.Get("createGitRepositories")

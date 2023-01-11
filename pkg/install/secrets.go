@@ -100,6 +100,32 @@ func create23keConfigSecret(kubeClient client.WithWatch) error {
 		}
 	}
 
+	if !viper.IsSet("version") {
+		prompt := &survey.Input{
+			Message: "Please enter the version to install.",
+		}
+		var queryResult string
+		err := survey.AskOne(prompt, &queryResult, withValidator("required"))
+		exitOnCtrlC(err)
+		if err != nil {
+			return err
+		}
+		viper.Set("version", queryResult)
+	}
+
+	if !viper.IsSet("bucket.endpoint") {
+		prompt := &survey.Input{
+			Message: "Please enter the bucket endpoint, you got from 23T. This is part of your 23ke license.",
+		}
+		var queryResult string
+		err := survey.AskOne(prompt, &queryResult, withValidator("required"))
+		exitOnCtrlC(err)
+		if err != nil {
+			return err
+		}
+		viper.Set("bucket.endpoint", queryResult)
+	}
+
 	fmt.Println("Creating '23ke-config' secret")
 
 	s3Client, err := minio.New(viper.GetString("bucket.endpoint"), &minio.Options{
