@@ -24,3 +24,4 @@ jobs:
         goversion: 1.19
         binary_name: 23kectl
         compress_assets: false
+        overwrite: true
