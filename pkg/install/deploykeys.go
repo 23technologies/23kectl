@@ -46,7 +46,7 @@ func generateDeployKey(kubeClient client.WithWatch, secretName string, repoUrl s
 		// define some options for the generation of the flux source secret
 		sourceSecOpts := sourcesecret.MakeDefaultOptions()
 		sourceSecOpts.PrivateKeyAlgorithm = "ed25519"
-		sourceSecOpts.SSHHostname = repourl.Host
+		sourceSecOpts.SSHHostname = getSSHHostname(repourl)
 		sourceSecOpts.Name = secretName
 
 		// generate the flux source secret manifest and store it as []byte in the shootResources
@@ -75,7 +75,7 @@ func generateDeployKey(kubeClient client.WithWatch, secretName string, repoUrl s
 	}
 }
 
-func blockUntilKeyCanRead(repoUrl string, keys *ssh.PublicKeys, pubkey string) {
+var blockUntilKeyCanRead = func(repoUrl string, keys *ssh.PublicKeys, pubkey string) {
 	var err error
 	for {
 		err = keyCanRead(repoUrl, keys)
@@ -106,4 +106,8 @@ func keyCanRead(url string, publicKeys *ssh.PublicKeys) error {
 		return err
 	}
 	return nil
+}
+
+var getSSHHostname = func(repourl *url.URL) string {
+	return repourl.Host
 }
