@@ -18,7 +18,7 @@ import (
 
 func createBucketSecret(kubeClient client.WithWatch) error {
 
-	if !viper.IsSet("bucket.accesskey") {
+	queryConfigKey("bucket.accesskey", func() (any, error) {
 		prompt := &survey.Input{
 			Message: "Please enter the accesskey, you got from 23T. This is part of your 23ke license.",
 		}
@@ -26,12 +26,13 @@ func createBucketSecret(kubeClient client.WithWatch) error {
 		err := survey.AskOne(prompt, &queryResult, withValidator("required"))
 		exitOnCtrlC(err)
 		if err != nil {
-			return err
+			return nil, err
 		}
-		viper.Set("bucket.accesskey", queryResult)
-	}
 
-	if !viper.IsSet("bucket.secretkey") {
+		return queryResult, nil
+	})
+
+	queryConfigKey("bucket.secretkey", func() (any, error) {
 		prompt := &survey.Input{
 			Message: "Please enter the secretkey, you got from 23T. This is part of your 23ke license.",
 		}
@@ -39,10 +40,11 @@ func createBucketSecret(kubeClient client.WithWatch) error {
 		err := survey.AskOne(prompt, &queryResult, withValidator("required"))
 		exitOnCtrlC(err)
 		if err != nil {
-			return err
+			return nil, err
 		}
-		viper.Set("bucket.secretkey", queryResult)
-	}
+
+		return queryResult, nil
+	})
 
 	sec := corev1.Secret{
 		ObjectMeta: v1.ObjectMeta{
@@ -69,8 +71,7 @@ func createBucketSecret(kubeClient client.WithWatch) error {
 }
 
 func create23keConfigSecret(kubeClient client.WithWatch) error {
-	// Create the 23ke-config secret
-	if !viper.IsSet("issuer.acme.email") {
+	queryConfigKey("issuer.acme.email", func() (any, error) {
 		prompt := &survey.Input{
 			Message: "Please enter your email address for acme certificate generation",
 			Default: viper.GetString("admin.email"),
@@ -79,28 +80,22 @@ func create23keConfigSecret(kubeClient client.WithWatch) error {
 		err := survey.AskOne(prompt, &queryResult, withValidator("required,email"))
 		exitOnCtrlC(err)
 		if err != nil {
-			return err
+			return nil, err
 		}
-		viper.Set("issuer.acme.email", queryResult)
-		err = viper.WriteConfig()
-		if err != nil {
-			return err
-		}
-	}
 
-	if !viper.IsSet("domainConfig") {
+		return queryResult, nil
+	})
+
+	queryConfigKey("domainConfig", func() (any, error) {
 		domainConfig, err := queryDomainConfig()
 		if err != nil {
-			return err
+			return nil, err
 		}
-		viper.Set("domainConfig", domainConfig)
-		err = viper.WriteConfig()
-		if err != nil {
-			return err
-		}
-	}
 
-	if !viper.IsSet("version") {
+		return domainConfig, nil
+	})
+
+	queryConfigKey("version", func() (any, error) {
 		prompt := &survey.Input{
 			Message: "Please enter the version to install.",
 		}
@@ -108,12 +103,13 @@ func create23keConfigSecret(kubeClient client.WithWatch) error {
 		err := survey.AskOne(prompt, &queryResult, withValidator("required"))
 		exitOnCtrlC(err)
 		if err != nil {
-			return err
+			return nil, err
 		}
-		viper.Set("version", queryResult)
-	}
 
-	if !viper.IsSet("bucket.endpoint") {
+		return queryResult, nil
+	})
+
+	queryConfigKey("bucket.endpoint", func() (any, error) {
 		prompt := &survey.Input{
 			Message: "Please enter the bucket endpoint, you got from 23T. This is part of your 23ke license.",
 		}
@@ -121,10 +117,11 @@ func create23keConfigSecret(kubeClient client.WithWatch) error {
 		err := survey.AskOne(prompt, &queryResult, withValidator("required"))
 		exitOnCtrlC(err)
 		if err != nil {
-			return err
+			return nil, err
 		}
-		viper.Set("bucket.endpoint", queryResult)
-	}
+
+		return queryResult, nil
+	})
 
 	fmt.Println("Creating '23ke-config' secret")
 

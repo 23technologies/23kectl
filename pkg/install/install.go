@@ -26,8 +26,11 @@ import (
 
 // install ...
 
-func Install(kubeconfig string, keConfiguration *KeConfig) error {
+func Install(kubeconfig string) error {
 	log := logger.Get("Install")
+
+	keConfiguration := &KeConfig{}
+	UnmarshalKeConfig(keConfiguration)
 
 	var err error
 	var kubeconfigArgs = genericclioptions.NewConfigFlags(false)
@@ -137,13 +140,12 @@ func Install(kubeconfig string, keConfiguration *KeConfig) error {
 }
 
 func completeKeConfig(kubeClient client.WithWatch) error {
-
 	viper.SetDefault("dashboard.sessionSecret", common.RandHex(20))
 	viper.SetDefault("dashboard.clientSecret", common.RandHex(20))
 	viper.SetDefault("kubeApiServer.basicAuthPassword", common.RandHex(20))
 	viper.SetDefault("clusterIdentity", "garden-cluster-"+common.RandHex(5)+"-identity")
 
-	if !viper.IsSet("gardenlet.seedPodCidr") {
+	queryConfigKey("gardenlet.seedPodCidr", func() (any, error) {
 		// We assume that either calico or cilium are used as CNI
 		// Therefore, we search for an ippool with name "default-ipv4-ippool" for the calico case.
 		// In the cilium case, we search for the configmap "cilium-config" in the kube-system namespace
@@ -160,7 +162,7 @@ func completeKeConfig(kubeClient client.WithWatch) error {
 			Name:      "default-ipv4-ippool",
 		}, &ipPool)
 		if err == nil {
-			viper.Set("gardenlet.SeedPodCidr", ipPool.Object["spec"].(map[string]interface{})["cidr"].(string))
+			return ipPool.Object["spec"].(map[string]interface{})["cidr"].(string), nil
 		} else {
 
 			ciliumConfig := corev1.ConfigMap{}
@@ -178,16 +180,15 @@ func completeKeConfig(kubeClient client.WithWatch) error {
 				err := survey.AskOne(prompt, &queryResult, withValidator("required,cidr"))
 				exitOnCtrlC(err)
 				if err != nil {
-					return err
+					return nil, err
 				}
-				viper.Set("gardenlet.seedPodCidr", queryResult)
-				viper.WriteConfig()
+				return queryResult, nil
 
 			} else {
-				viper.Set("gardenlet.seedPodCidr", ciliumConfig.Data["cluster-pool-ipv4-cidr"])
+				return ciliumConfig.Data["cluster-pool-ipv4-cidr"], nil
 			}
 		}
-	}
+	})
 
 	if !viper.IsSet("gardenlet.seedServiceCidr") {
 		dummySvc := &corev1.Service{
@@ -205,13 +206,14 @@ func completeKeConfig(kubeClient client.WithWatch) error {
 	}
 
 	if !viper.IsSet("gardener.clusterIP") {
-		clusterIp, ipnet, _ := net.ParseCIDR(viper.GetString("gardenlet.seedServiceCidr"))
+		seedServiceCidr := viper.GetString("gardenlet.seedServiceCidr")
+		clusterIp, ipnet, _ := net.ParseCIDR(seedServiceCidr)
 
-		clusterIp[len(clusterIp)-2] += 1
+		// clusterIp[len(clusterIp)-2] += 1
 		clusterIp[len(clusterIp)-1] += 1
 
 		if !ipnet.Contains(clusterIp) {
-			panic("Your cluster ip is out of the service IP range")
+			panic(fmt.Sprintf("Your cluster ip (%s) is out of the service IP range: %s", clusterIp, ipnet.String()))
 		}
 		viper.Set("gardener.clusterIP", clusterIp.String())
 	}

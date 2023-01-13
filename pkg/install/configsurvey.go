@@ -16,9 +16,21 @@ func exitOnCtrlC(err error) {
 	if errors.Is(err, terminal.InterruptErr) {
 		fmt.Println("Ctrl+C, exiting.")
 		os.Exit(1)
-	} else if err != nil {
-		panic(err)
 	}
+}
+
+var queryConfigKey = func(configKey string, fn func() (any, error)) error {
+	if !viper.IsSet(configKey) {
+		result, err := fn()
+		if err != nil {
+			return err
+		}
+
+		viper.Set(configKey, result)
+		viper.WriteConfig()
+	}
+
+	return nil
 }
 
 // queryAdminConfig ...
@@ -26,7 +38,7 @@ func queryAdminConfig() error {
 	var err error
 	var prompt survey.Prompt
 
-	if !viper.IsSet("admin.email") {
+	queryConfigKey("admin.email", func() (any, error) {
 		prompt = &survey.Input{
 			Message: `Please enter your email address.
 This will be the email address to use, when you want to login to the Gardener dashboard.`,
@@ -35,13 +47,13 @@ This will be the email address to use, when you want to login to the Gardener da
 		err = survey.AskOne(prompt, &queryResult, withValidator("required,email"))
 		exitOnCtrlC(err)
 		if err != nil {
-			return err
+			return "", err
 		}
-		viper.Set("admin.email", queryResult)
-		viper.WriteConfig()
-	}
 
-	if !viper.IsSet("admin.password") {
+		return queryResult, nil
+	})
+
+	queryConfigKey("admin.password", func() (any, error) {
 		prompt = &survey.Password{
 			Message: `Please enter the administrator password to use.
 This will be the password to use, when you login to the Gardener dashboard.`,
@@ -50,19 +62,19 @@ This will be the password to use, when you login to the Gardener dashboard.`,
 		err = survey.AskOne(prompt, &queryResult, withValidator("required"))
 		exitOnCtrlC(err)
 		if err != nil {
-			return err
+			return "", err
 		}
 
 		hash, err := bcrypt.GenerateFromPassword(([]byte)(queryResult), 10)
 		exitOnCtrlC(err)
 		if err != nil {
-			return err
+			return "", err
 		}
-		viper.Set("admin.password", string(hash))
-		viper.WriteConfig()
-	}
 
-	if !viper.IsSet("admin.gitrepourl") {
+		return string(hash), nil
+	})
+
+	queryConfigKey("admin.gitrepourl", func() (any, error) {
 		prompt = &survey.Input{
 			Message: "Please enter an ssh git remote in URL form. e.g. ssh://git@github.com/User/Repo.git",
 			Help: `
@@ -74,13 +86,12 @@ Flux will monitor these files to pick up configuration changes.
 		err = survey.AskOne(prompt, &queryResult, withValidator("required,url,startswith=ssh://"))
 		exitOnCtrlC(err)
 		if err != nil {
-			return err
+			return nil, err
 		}
-		viper.Set("admin.gitrepourl", queryResult)
-		viper.WriteConfig()
-	}
+		return queryResult, nil
+	})
 
-	if !viper.IsSet("admin.gitrepobranch") {
+	queryConfigKey("admin.gitrepobranch", func() (any, error) {
 		prompt = &survey.Input{
 			Message: "Please enter the git branch to use. Will be created if it doesn't exist.",
 			Default: "main",
@@ -93,11 +104,10 @@ You can store configuration files for multiple gardeners (e.g. prod, staging, de
 		err = survey.AskOne(prompt, &queryResult, withValidator("required"))
 		exitOnCtrlC(err)
 		if err != nil {
-			return err
+			return nil, err
 		}
-		viper.Set("admin.gitrepobranch", queryResult)
-		viper.WriteConfig()
-	}
+		return queryResult, nil
+	})
 
 	return nil
 }
@@ -107,7 +117,7 @@ func queryBaseClusterConfig() error {
 	var prompt survey.Prompt
 
 	// todo explain to user. what's this for?
-	if !viper.IsSet("baseCluster.provider") {
+	queryConfigKey("baseCluster.provider", func() (any, error) {
 		prompt = &survey.Select{
 			Message: "Select the provider of your base cluster",
 			Options: []string{"hcloud", "azure", "aws", "openstack"},
@@ -120,13 +130,12 @@ If you feel like this list in incomplete, contact the 23T support.
 		err = survey.AskOne(prompt, &queryResult, withValidator("required"))
 		exitOnCtrlC(err)
 		if err != nil {
-			return err
+			return nil, err
 		}
-		viper.Set("baseCluster.provider", queryResult)
-		viper.WriteConfig()
-	}
+		return queryResult, nil
+	})
 
-	if !viper.IsSet("baseCluster.Region") {
+	queryConfigKey("baseCluster.Region", func() (any, error) {
 		prompt = &survey.Input{
 			Message: "Please enter the region of your base cluster",
 			Help: `
@@ -139,14 +148,13 @@ For clusters hosted on Azure, this could be e.g. germanywestcentral or westeurop
 		err = survey.AskOne(prompt, &queryResult, withValidator("required"))
 		exitOnCtrlC(err)
 		if err != nil {
-			return err
+			return nil, err
 		}
-		viper.Set("baseCluster.region", queryResult)
-		viper.WriteConfig()
-	}
+		return queryResult, nil
+	})
 
 	// todo explain to user. document where to find it on supported providers
-	if !viper.IsSet("baseCluster.nodeCidr") {
+	queryConfigKey("baseCluster.nodeCidr", func() (any, error) {
 		prompt = &survey.Input{
 			Message: "Please enter the node CIDR of your base cluster in the form: x.x.x.x/y",
 			Help: `
@@ -158,14 +166,16 @@ Therefore, the node CIDR should match a network that comprises all ip addresses 
 		err = survey.AskOne(prompt, &queryResult, withValidator("required,cidr"))
 		exitOnCtrlC(err)
 		if err != nil {
-			return err
+			return nil, err
 		}
-		viper.Set("baseCluster.nodeCidr", queryResult)
-	}
-	viper.Set("gardenlet.seedNodeCidr", viper.GetString("baseCluster.nodeCidr"))
-	viper.WriteConfig()
+		return queryResult, nil
+	})
 
-	if !viper.IsSet("baseCluster.hasVerticalPodAutoscaler") {
+	queryConfigKey("gardenlet.seedNodeCidr", func() (any, error) {
+		return viper.GetString("baseCluster.nodeCidr"), nil
+	})
+
+	queryConfigKey("baseCluster.hasVerticalPodAutoscaler", func() (any, error) {
 		const (
 			yes       = "Yes"
 			no        = "No"
@@ -187,7 +197,7 @@ Automatically detecting VPA from within the cluster isn't reliable, so if you ch
 		err = survey.AskOne(prompt, &queryResult)
 		exitOnCtrlC(err)
 		if err != nil {
-			return err
+			return false, err
 		}
 
 		var hasVerticalPodAutoscaler bool
@@ -205,9 +215,9 @@ If the base cluster already provides one, both may keep reversing the other one'
 Gardener will work but you'll see lots of pod restarts. Not recommended for production use.`)
 			common.PressEnterToContinue()
 		}
-		viper.Set("baseCluster.hasVerticalPodAutoscaler", hasVerticalPodAutoscaler)
-		viper.WriteConfig()
-	}
+		return hasVerticalPodAutoscaler, nil
+	})
+
 	return nil
 }
 
