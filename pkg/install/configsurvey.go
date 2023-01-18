@@ -1,13 +1,13 @@
 package install
 
 import (
-	"errors"
 	"fmt"
 	"github.com/23technologies/23kectl/pkg/common"
 	"os"
 
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/AlecAivazis/survey/v2/terminal"
+	"github.com/pkg/errors"
 	"github.com/spf13/viper"
 	"golang.org/x/crypto/bcrypt"
 )

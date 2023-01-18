@@ -5,6 +5,8 @@ package install_test
 import (
 	"context"
 	"github.com/23technologies/23kectl/pkg/logger"
+	"github.com/minio/minio-go/v7"
+	"github.com/minio/minio-go/v7/pkg/credentials"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"k8s.io/client-go/rest"
@@ -14,20 +16,39 @@ import (
 	"testing"
 )
 
-var testEnv *envtest.Environment
+var tmpFolder, _ = os.MkdirTemp("", "23kectl-test-*")
+var testKubeConfig = tmpFolder + "/testKubeConfig.yaml"
+
 var cancel context.CancelFunc
 var k8sClient client.WithWatch
-
-const testKubeConfig = "testKubeConfig.yaml"
+var k8sTestEnv *envtest.Environment
+var s3Client *minio.Client
 
 var _ = BeforeSuite(func() {
+	By("bootstrapping test environment")
+
 	disposeLogger := logger.Init()
 	defer disposeLogger()
 
 	_, cancel = context.WithCancel(context.TODO())
+	k8sTestEnv, k8sClient = createK8sTestenv()
+	s3Client = createMinioClient()
+})
 
-	By("bootstrapping test environment")
-	testEnv = &envtest.Environment{}
+var _ = AfterSuite(func() {
+	cancel()
+	By("tearing down the test environment")
+	err := k8sTestEnv.Stop()
+	Expect(err).NotTo(HaveOccurred())
+})
+
+func Test(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "Suite")
+}
+
+func createK8sTestenv() (*envtest.Environment, client.WithWatch) {
+	testEnv := &envtest.Environment{}
 	cfg, err := testEnv.Start()
 	Expect(err).NotTo(HaveOccurred())
 	Expect(cfg).NotTo(BeNil())
@@ -41,23 +62,33 @@ var _ = BeforeSuite(func() {
 
 	testUserInfo := envtest.User{Name: "test", Groups: []string{"system:masters"}}
 	testUser, err := testEnv.ControlPlane.AddUser(testUserInfo, baseConfig)
+	Expect(err).NotTo(HaveOccurred())
 	kubeConfig, err := testUser.KubeConfig()
-	os.WriteFile(testKubeConfig, kubeConfig, 0644)
+	Expect(err).NotTo(HaveOccurred())
 
-	k8sClient, err = client.NewWithWatch(cfg, client.Options{})
-	print(k8sClient)
+	err = os.WriteFile(testKubeConfig, kubeConfig, 0644)
+	Expect(err).NotTo(HaveOccurred())
+
+	k8sClient, err := client.NewWithWatch(cfg, client.Options{})
+
 	Expect(err).NotTo(HaveOccurred())
 	Expect(k8sClient).NotTo(BeNil())
-})
 
-var _ = AfterSuite(func() {
-	cancel()
-	By("tearing down the test environment")
-	err := testEnv.Stop()
+	return testEnv, k8sClient
+}
+
+func createMinioClient() *minio.Client {
+	endpoint := testConfig["bucket.endpoint"].(string)
+	accessKeyID := testConfig["bucket.accesskey"].(string)
+	secretAccessKey := testConfig["bucket.secretkey"].(string)
+
+	// Initialize minio client object.
+	s3Client, err := minio.New(endpoint, &minio.Options{
+		Creds:  credentials.NewStaticV4(accessKeyID, secretAccessKey, ""),
+		Secure: false,
+	})
+
 	Expect(err).NotTo(HaveOccurred())
-})
 
-func Test(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "Suite")
+	return s3Client
 }

@@ -24,15 +24,15 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+var services = struct {
+	fetchRequirements func()
+}{}
+
 // install ...
 
-func Install(kubeconfig string) error {
-	log := logger.Get("Install")
+func createKubeClient(kubeconfig string) (*genericclioptions.ConfigFlags, *runclient.Options, client.WithWatch, error) {
+	log := logger.Get("createKubeClient")
 
-	keConfiguration := &KeConfig{}
-	UnmarshalKeConfig(keConfiguration)
-
-	var err error
 	var kubeconfigArgs = genericclioptions.NewConfigFlags(false)
 	kubeconfigArgs.KubeConfig = &kubeconfig
 
@@ -40,10 +40,26 @@ func Install(kubeconfig string) error {
 	kubeClient, err := utils.KubeClient(kubeconfigArgs, kubeclientOptions)
 	if err != nil {
 		log.Error(err, "Couldn't create kubeclient")
+		return nil, nil, nil, err
+	}
+
+	return kubeconfigArgs, kubeclientOptions, kubeClient, nil
+}
+
+func install(kubeconfig string) error {
+	log := logger.Get("Install")
+
+	keConfiguration := &KeConfig{}
+	UnmarshalKeConfig(keConfiguration)
+
+	var err error
+	kubeconfigArgs, kubeclientOptions, kubeClient, err := createKubeClient(kubeconfig)
+	if err != nil {
 		return err
 	}
 
-	err = installFlux(kubeClient, kubeconfigArgs, kubeclientOptions)
+	fmt.Println("Installing flux")
+	err = installFlux(kubeconfigArgs, kubeclientOptions)
 	if err != nil {
 		log.Error(err, "Couldn't install flux")
 		return err

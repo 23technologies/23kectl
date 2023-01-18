@@ -7,8 +7,6 @@ import (
 
 	"github.com/23technologies/23kectl/pkg/common"
 	"github.com/AlecAivazis/survey/v2"
-	"github.com/minio/minio-go/v7"
-	"github.com/minio/minio-go/v7/pkg/credentials"
 	"github.com/spf13/viper"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -125,29 +123,28 @@ func create23keConfigSecret(kubeClient client.WithWatch) error {
 
 	fmt.Println("Creating '23ke-config' secret")
 
-	s3Client, err := minio.New(viper.GetString("bucket.endpoint"), &minio.Options{
-		Creds:  credentials.NewStaticV4(viper.GetString("bucket.accesskey"), viper.GetString("bucket.secretkey"), ""),
-		Secure: true,
-	})
-	if err != nil {
-		return err
-	}
-
-	obj, err := s3Client.GetObject(context.Background(), viper.GetString("version"),
-		"templates/23ke-config.yaml", minio.GetObjectOptions{})
-	if err != nil {
-		return err
-	}
-
-	stat, err := obj.Stat()
-	if err != nil {
-		return err
-	}
-
-	content := make([]byte, stat.Size)
-	obj.Read(content)
-
-	tpl, err := makeTemplate().Parse(string(content))
+	tpl, err := makeTemplate().Parse(`
+apiVersion: v1
+kind: Secret
+metadata:
+  name: 23ke-config
+  namespace: flux-system
+type: Opaque
+stringData:
+  values.yaml: |
+    clusterIdentity: {{ .ClusterIdentity }}
+    dashboard:
+      clientSecret: {{ .Dashboard.ClientSecret }}
+      sessionSecret: {{ .Dashboard.SessionSecret }}
+    kubeApiServer:
+      basicAuthPassword: {{ .KubeApiServer.BasicAuthPassword }}
+    issuer:
+      acme:
+        email: {{ .Issuer.Acme.Email }}
+    domains:
+      global: # means used for ingress, gardener defaultDomain and internalDomain
+        {{- nindent 8 (toYaml .DomainConfig) }}
+`)
 
 	if err != nil {
 		return err

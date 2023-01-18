@@ -2,8 +2,8 @@ package install
 
 import (
 	"context"
-	"errors"
 	"fmt"
+	"github.com/pkg/errors"
 	"time"
 
 	"github.com/23technologies/23kectl/pkg/common"
@@ -103,7 +103,7 @@ func updateConfigRepo(publicKeys ssh.PublicKeys) error {
 		NoCheckout: true,
 	})
 	if err != nil && !errors.Is(err, transport.ErrEmptyRemoteRepository) {
-		panic(err)
+		return err
 	}
 
 	branchName := viper.GetString("admin.gitRepoBranch")

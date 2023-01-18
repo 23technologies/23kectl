@@ -12,6 +12,22 @@ import (
 var TestConfig map[string]any
 var HostName = "github.com"
 
+var CreateKubeClient = createKubeClient
+var Install = install
+var InstallFlux = installFlux
+var CreateBucketSecret = createBucketSecret
+var CompleteKeConfig = completeKeConfig
+var QueryAdminConfig = queryAdminConfig
+var QueryBaseClusterConfig = queryBaseClusterConfig
+var GenerateDeployKey = generateDeployKey
+var Create23keConfigSecret = create23keConfigSecret
+var Create23keBucket = create23keBucket
+var CreateGitRepositories = createGitRepositories
+var CreateAddonsKs = createAddonsKs
+var CreateKustomizations = createKustomizations
+var UpdateConfigRepo = updateConfigRepo
+var WriteConfigDir = writeConfigDir
+
 func init() {
 	blockUntilKeyCanRead = func(_ string, _ *ssh.PublicKeys, _ string) {}
 
@@ -24,7 +40,7 @@ func init() {
 
 		result := TestConfig[lc]
 
-		if result == "" {
+		if result == nil || result == "" {
 			panic("key doesn't exist: " + lc)
 		}
 

@@ -4,7 +4,10 @@ import (
 	"context"
 	"fmt"
 	"github.com/23technologies/23kectl/pkg/common"
+	corev1 "k8s.io/api/core/v1"
 	"net/url"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	k8syaml "sigs.k8s.io/yaml"
 	"strings"
 
 	"github.com/fluxcd/flux2/pkg/manifestgen/sourcesecret"
@@ -13,9 +16,6 @@ import (
 	"github.com/go-git/go-git/v5/plumbing/transport"
 	"github.com/go-git/go-git/v5/plumbing/transport/ssh"
 	"github.com/go-git/go-git/v5/storage/memory"
-	corev1 "k8s.io/api/core/v1"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-	k8syaml "sigs.k8s.io/yaml"
 )
 
 func generateDeployKey(kubeClient client.WithWatch, secretName string, repoUrl string) (*ssh.PublicKeys, error) {
@@ -65,9 +65,15 @@ func generateDeployKey(kubeClient client.WithWatch, secretName string, repoUrl s
 
 		fmt.Println(`I created an ssh key for you.`)
 
-		kubeClient.Create(context.Background(), &fluxRepoSecret)
+		err = kubeClient.Create(context.Background(), &fluxRepoSecret)
+		if err != nil {
+			return nil, err
+		}
 
-		keys, _ = ssh.NewPublicKeys("git", fluxRepoSecret.Data["identity"], "")
+		keys, err = ssh.NewPublicKeys("git", fluxRepoSecret.Data["identity"], "")
+		if err != nil {
+			return nil, err
+		}
 
 		blockUntilKeyCanRead(repoUrl, keys, string(fluxRepoSecret.Data["identity.pub"]))
 
