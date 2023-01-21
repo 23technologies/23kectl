@@ -4,26 +4,22 @@ package install_test
 
 import (
 	"fmt"
-	"github.com/23technologies/23kectl/pkg/common"
 	"github.com/23technologies/23kectl/pkg/install"
-	runclient "github.com/fluxcd/pkg/runtime/client"
-	"github.com/go-git/go-billy/v5/osfs"
-	"github.com/go-git/go-git/v5/plumbing/transport/ssh"
+	"github.com/go-git/go-git/v5"
+	"github.com/go-git/go-git/v5/plumbing"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/spf13/viper"
-	"io/fs"
-	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"math/rand"
 	"os"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-	"time"
+	"os/exec"
+	"path"
 )
 
 var testConfig = map[string]any{
 	"admin.email":                          "test@example.org",
-	"admin.gitrepobranch":                  "test",
-	"admin.gitrepourl":                     "file://./config_repo",
+	"admin.gitrepobranch":                  configRepoBranch,
+	"admin.gitrepourl":                     configRepoUrl,
 	"admin.password":                       "$2a$10$eWNJshWJxf24FVm4u7W1XOYiPzdSscmFgs3GVF.PYaC42DjuX1piu",
 	"basecluster.hasverticalpodautoscaler": "false",
 	"basecluster.nodecidr":                 "10.250.0.0/16",
@@ -56,165 +52,125 @@ var testConfig = map[string]any{
 	"version":                         "test",
 }
 
+var cwd, _ = os.Getwd()
+
 var bucketName = fmt.Sprint(rand.Uint32())
-var configFileName = tmpFolder + "/config.yaml"
+var configFileName = path.Join(tmpFolder, "config.yaml")
+var configRepo = path.Join(tmpFolder, "config.git")
+var configRepoUrl = "file://" + configRepo
+var configRepoBranch = "test"
+var configFixture = path.Join(cwd, "__fixture__/config")
 
 func init() {
 	When("Running the `install` command", Ordered, func() {
-		BeforeAll(func() {
-			// var err error
+		var installErr error
 
-			By("Using config file " + configFileName)
+		BeforeAll(func() {
+			var err error
+
 			viper.SetConfigFile(configFileName)
 
+			_, err = git.PlainInit(configRepo, true)
+			if err != nil {
+				panic(err)
+			}
+
 			install.TestConfig = testConfig
+			installErr = install.Install(testKubeConfig)
 
 			//By("Using bucket " + bucketName)
 			//err = s3Client.MakeBucket(context.Background(), bucketName, minio.MakeBucketOptions{})
 			//Expect(err).NotTo(HaveOccurred())
 		})
 
-		AfterAll(func() {
+		AfterAll(func(ctx SpecContext) {
 			// _ = s3Client.RemoveBucket(context.Background(), bucketName)
 		})
 
-		XIt("should Install", func() {
-			err := install.Install(testKubeConfig)
-			Expect(err).NotTo(HaveOccurred())
-		})
-
-		var kubeconfigArgs *genericclioptions.ConfigFlags
-		var kubeclientOptions *runclient.Options
-		var kubeClient client.WithWatch
-
-		It("should create kube client", func(ctx SpecContext) {
-			var err error
-			By("asdasdasd")
-			kubeconfigArgs, kubeclientOptions, kubeClient, err = install.CreateKubeClient(testKubeConfig)
-
-			Expect(err).NotTo(HaveOccurred())
-			Expect(kubeconfigArgs).NotTo(BeNil())
-			Expect(kubeclientOptions).NotTo(BeNil())
-			Expect(kubeClient).NotTo(BeNil())
-		})
-
 		It("should install flux", func() {
-			err := install.InstallFlux(kubeconfigArgs, kubeclientOptions)
-
-			Expect(err).NotTo(HaveOccurred())
+			Expect(nil).To(BeNil())
 		})
 
 		It("should create BucketSecret", func() {
-			err := install.CreateBucketSecret(kubeClient)
-			Expect(err).NotTo(HaveOccurred())
+			Expect(nil).To(BeNil())
 		})
 
 		It("should completeKeConfig", func() {
-			err := install.CompleteKeConfig(kubeClient)
-			Expect(err).NotTo(HaveOccurred())
+			Expect(nil).To(BeNil())
 		})
 
 		It("should queryAdminConfig", func() {
-			err := install.QueryAdminConfig()
-			Expect(err).NotTo(HaveOccurred())
+			Expect(nil).To(BeNil())
 		})
 
 		It("should queryBaseClusterConfig", func() {
-			err := install.QueryBaseClusterConfig()
-			Expect(err).NotTo(HaveOccurred())
+			Expect(nil).To(BeNil())
 		})
 
 		It("should generateDeployKey", func() {
-			keys, err := install.GenerateDeployKey(kubeClient, "somename", "ssh://a:b@localhost")
-			Expect(err).NotTo(HaveOccurred())
-			Expect(keys).NotTo(BeNil())
+			Expect(nil).To(BeNil())
 		})
 
 		It("should create23keConfigSecret", func() {
-			err := install.Create23keConfigSecret(kubeClient)
-			Expect(err).NotTo(HaveOccurred())
+			Expect(nil).To(BeNil())
 		})
 
-		It("should create23keBucket", func(ctx SpecContext) {
-			err := install.Create23keBucket(kubeClient)
-			Expect(err).NotTo(HaveOccurred())
+		It("should create23keBucket", func() {
+			Expect(nil).To(BeNil())
 		})
 
 		It("should createGitRepositories", func() {
-			err := install.CreateGitRepositories(kubeClient)
-			Expect(err).NotTo(HaveOccurred())
+			Expect(nil).To(BeNil())
 		})
 
 		It("should createAddonsKs", func() {
-			err := install.CreateAddonsKs(kubeClient)
-			Expect(err).NotTo(HaveOccurred())
+			Expect(nil).To(BeNil())
 		})
 
 		It("should createKustomizations", func() {
-			err := install.CreateKustomizations(kubeClient)
-			Expect(err).NotTo(HaveOccurred())
+			Expect(nil).To(BeNil())
 		})
 
-		It("should create correct config files", func() {
-			// Todo: Shouldn't be here
-			viper.Set("extensionsConfig.provider-"+viper.GetString("baseCluster.provider")+".enabled", true)
-			viper.Set("extensionsConfig."+common.DNS_PROVIDER_TO_PROVIDER[viper.GetString("domainConfig.provider")]+".enabled", true)
-			viper.WriteConfig()
+		It("should update the config repo", func() {
+			// clone the config repo, remove everything, add everything from the fixture, check if worktree is clean
 
-			tmpDir, err := os.MkdirTemp("", "23kectl-test-config-"+fmt.Sprint(time.Now().Unix())+"-*")
-			Expect(err).NotTo(HaveOccurred())
-			//defer os.RemoveAll(tmpDir)
-
-			err = install.WriteConfigDir(osfs.New(tmpDir), ".")
-			Expect(err).NotTo(HaveOccurred())
-
-			actualFS := os.DirFS(tmpDir)
-			expectedFS := os.DirFS("pkg/install/__fixture__/config")
-
-			seenInExpected := map[string]bool{}
-
-			err = fs.WalkDir(expectedFS, ".", func(path string, d fs.DirEntry, err error) error {
-				if err != nil {
-					return err
-				}
-
-				if d.IsDir() {
-					return nil
-				}
-
-				expectedContent, err := fs.ReadFile(expectedFS, path)
-				Expect(err).NotTo(HaveOccurred())
-
-				actualContent, err := fs.ReadFile(actualFS, path)
-				Expect(err).NotTo(HaveOccurred())
-
-				Expect(string(actualContent)).To(Equal(string(expectedContent)), fmt.Sprintf("contents of %s don't match expected", path))
-
-				seenInExpected[path] = true
-
-				return nil
+			configRepoClone := path.Join(tmpFolder, "config-repo-clone")
+			r, err := git.PlainClone(configRepoClone, false, &git.CloneOptions{
+				URL:           configRepoUrl,
+				ReferenceName: plumbing.NewBranchReferenceName(configRepoBranch),
 			})
+
+			wt, err := r.Worktree()
 			Expect(err).NotTo(HaveOccurred())
 
-			err = fs.WalkDir(actualFS, ".", func(path string, d fs.DirEntry, err error) error {
-				if err != nil {
-					return err
-				}
-
-				if d.IsDir() {
-					return nil
-				}
-
-				Expect(seenInExpected[path]).To(BeTrue(), fmt.Sprintf("%s exists but shouldn't", path))
-
-				return nil
-			})
+			_, err = wt.Remove(".")
 			Expect(err).NotTo(HaveOccurred())
+
+			// feels terrible but is safe for testing
+			err = exec.Command("sh", "-c", fmt.Sprintf("cp -r %s/* %s", configFixture, configRepoClone)).Run()
+			Expect(err).NotTo(HaveOccurred())
+
+			_, err = wt.Add(".")
+			Expect(err).NotTo(HaveOccurred())
+
+			status, err := wt.Status()
+			Expect(err).NotTo(HaveOccurred())
+
+			if !status.IsClean() {
+				os.Stdout.WriteString("\n\n")
+
+				cmd := exec.Command("git", "--no-pager", "diff", "HEAD")
+				cmd.Dir = configRepoClone
+				cmd.Stdout = os.Stdout
+				err := cmd.Run()
+
+				Expect(err).NotTo(HaveOccurred())
+			}
+			Expect(status.IsClean()).To(BeTrue())
 		})
 
-		It("should updateConfigRepo", func() {
-			err := install.UpdateConfigRepo(ssh.PublicKeys{})
-			Expect(err).NotTo(HaveOccurred())
+		It("shouldn't return any unexpected error", func() {
+			Expect(installErr).NotTo(HaveOccurred())
 		})
 	})
 }

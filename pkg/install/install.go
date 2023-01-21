@@ -140,7 +140,7 @@ func install(kubeconfig string) error {
 		return err
 	}
 
-	err = updateConfigRepo(*publicKeysConfig)
+	err = updateConfigRepo(publicKeysConfig)
 	if err != nil {
 		return err
 	}

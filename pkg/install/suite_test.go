@@ -11,13 +11,14 @@ import (
 	. "github.com/onsi/gomega"
 	"k8s.io/client-go/rest"
 	"os"
+	"path"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	"testing"
 )
 
 var tmpFolder, _ = os.MkdirTemp("", "23kectl-test-*")
-var testKubeConfig = tmpFolder + "/testKubeConfig.yaml"
+var testKubeConfig = path.Join(tmpFolder, "testKubeConfig.yaml")
 
 var cancel context.CancelFunc
 var k8sClient client.WithWatch
@@ -31,7 +32,7 @@ var _ = BeforeSuite(func() {
 	defer disposeLogger()
 
 	_, cancel = context.WithCancel(context.TODO())
-	k8sTestEnv, k8sClient = createK8sTestenv()
+	k8sTestEnv, k8sClient = createK8sTestenv(testKubeConfig)
 	s3Client = createMinioClient()
 })
 
@@ -47,7 +48,7 @@ func Test(t *testing.T) {
 	RunSpecs(t, "Suite")
 }
 
-func createK8sTestenv() (*envtest.Environment, client.WithWatch) {
+func createK8sTestenv(configPath string) (*envtest.Environment, client.WithWatch) {
 	testEnv := &envtest.Environment{}
 	cfg, err := testEnv.Start()
 	Expect(err).NotTo(HaveOccurred())
@@ -66,7 +67,7 @@ func createK8sTestenv() (*envtest.Environment, client.WithWatch) {
 	kubeConfig, err := testUser.KubeConfig()
 	Expect(err).NotTo(HaveOccurred())
 
-	err = os.WriteFile(testKubeConfig, kubeConfig, 0644)
+	err = os.WriteFile(configPath, kubeConfig, 0644)
 	Expect(err).NotTo(HaveOccurred())
 
 	k8sClient, err := client.NewWithWatch(cfg, client.Options{})

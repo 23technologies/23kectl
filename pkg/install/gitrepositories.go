@@ -89,7 +89,7 @@ func createGitRepositories(kubeClient client.WithWatch) error {
 	return nil
 }
 
-func updateConfigRepo(publicKeys ssh.PublicKeys) error {
+func updateConfigRepo(publicKeys *ssh.PublicKeys) error {
 	log := logger.Get("updateConfigRepo")
 	gitRepo := viper.GetString("admin.gitrepourl")
 
@@ -99,7 +99,7 @@ func updateConfigRepo(publicKeys ssh.PublicKeys) error {
 	fmt.Printf("Cloning config repo to memory\n")
 	repository, err := git.Clone(memory.NewStorage(), workTreeFs, &git.CloneOptions{
 		URL:        gitRepo,
-		Auth:       &publicKeys,
+		Auth:       publicKeys,
 		NoCheckout: true,
 	})
 	if err != nil && !errors.Is(err, transport.ErrEmptyRemoteRepository) {
@@ -173,7 +173,7 @@ func updateConfigRepo(publicKeys ssh.PublicKeys) error {
 
 		log.Info("Pushing to config repo")
 		err = repository.Push(&git.PushOptions{
-			Auth: &publicKeys,
+			Auth: publicKeys,
 		})
 		if err != nil {
 			return err
