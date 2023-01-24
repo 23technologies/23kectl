@@ -3,4 +3,4 @@ kind: Kustomization
 resources:
   - admin-clusterrolebinding.yaml
   - rbac.yaml
-#  - project-dev.yaml
+  - project-dev.yaml
