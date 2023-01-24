@@ -1,10 +1,10 @@
 //go:build test
 
-package install_test
+package installv1_test
 
 import (
 	"fmt"
-	"github.com/23technologies/23kectl/pkg/install"
+	install "github.com/23technologies/23kectl/pkg/install/v1"
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
 	. "github.com/onsi/ginkgo/v2"

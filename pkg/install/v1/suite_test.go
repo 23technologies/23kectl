@@ -1,6 +1,6 @@
 //go:build test
 
-package install_test
+package installv1_test
 
 import (
 	"context"

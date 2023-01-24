@@ -1,14 +1,12 @@
-package install
+package installv1
 
 import (
 	"context"
 	"fmt"
-	"github.com/23technologies/23kectl/pkg/common"
-	corev1 "k8s.io/api/core/v1"
 	"net/url"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-	k8syaml "sigs.k8s.io/yaml"
 	"strings"
+
+	"github.com/23technologies/23kectl/pkg/common"
 
 	"github.com/fluxcd/flux2/pkg/manifestgen/sourcesecret"
 	"github.com/go-git/go-git/v5"
@@ -16,6 +14,10 @@ import (
 	"github.com/go-git/go-git/v5/plumbing/transport"
 	"github.com/go-git/go-git/v5/plumbing/transport/ssh"
 	"github.com/go-git/go-git/v5/storage/memory"
+	corev1 "k8s.io/api/core/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/envtest"
+	k8syaml "sigs.k8s.io/yaml"
 )
 
 func generateDeployKey(kubeClient client.WithWatch, secretName string, repoUrl string) (*ssh.PublicKeys, error) {
@@ -26,8 +28,13 @@ func generateDeployKey(kubeClient client.WithWatch, secretName string, repoUrl s
 	}, &sec)
 	exists := err == nil
 
-	var keys *ssh.PublicKeys
 
+	testEnv := &envtest.Environment{}
+
+
+	_ = testEnv
+	var keys *ssh.PublicKeys
+	
 	if exists {
 		keys, _ = ssh.NewPublicKeys("git", sec.Data["identity"], "")
 

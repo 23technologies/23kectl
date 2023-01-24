@@ -1,4 +1,4 @@
-package install
+package common
 
 import (
 	"fmt"
@@ -7,7 +7,7 @@ import (
 	"github.com/spf13/viper"
 )
 
-func createMinioClient() (*minio.Client, error) {
+func CreateMinioClient() (*minio.Client, error) {
 	endpoint := viper.GetString("bucket.endpoint")
 	accessKeyID := viper.GetString("bucket.accesskey")
 	secretAccessKey := viper.GetString("bucket.secretkey")

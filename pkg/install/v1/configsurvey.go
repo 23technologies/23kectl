@@ -1,37 +1,14 @@
-package install
+package installv1
 
 import (
-	"fmt"
 	"github.com/23technologies/23kectl/pkg/common"
-	"os"
 
 	"github.com/AlecAivazis/survey/v2"
-	"github.com/AlecAivazis/survey/v2/terminal"
-	"github.com/pkg/errors"
 	"github.com/spf13/viper"
 	"golang.org/x/crypto/bcrypt"
 )
 
-func exitOnCtrlC(err error) {
-	if errors.Is(err, terminal.InterruptErr) {
-		fmt.Println("Ctrl+C, exiting.")
-		os.Exit(1)
-	}
-}
-
-var queryConfigKey = func(configKey string, fn func() (any, error)) error {
-	if !viper.IsSet(configKey) {
-		result, err := fn()
-		if err != nil {
-			return err
-		}
-
-		viper.Set(configKey, result)
-		viper.WriteConfig()
-	}
-
-	return nil
-}
+var queryConfigKey = common.QueryConfigKey
 
 // queryAdminConfig ...
 func queryAdminConfig() error {
@@ -44,8 +21,8 @@ func queryAdminConfig() error {
 This will be the email address to use, when you want to login to the Gardener dashboard.`,
 		}
 		var queryResult string
-		err = survey.AskOne(prompt, &queryResult, withValidator("required,email"))
-		exitOnCtrlC(err)
+		err = survey.AskOne(prompt, &queryResult, common.WithValidator("required,email"))
+		common.ExitOnCtrlC(err)
 		if err != nil {
 			return "", err
 		}
@@ -59,14 +36,14 @@ This will be the email address to use, when you want to login to the Gardener da
 This will be the password to use, when you login to the Gardener dashboard.`,
 		}
 		var queryResult string
-		err = survey.AskOne(prompt, &queryResult, withValidator("required"))
-		exitOnCtrlC(err)
+		err = survey.AskOne(prompt, &queryResult, common.WithValidator("required"))
+		common.ExitOnCtrlC(err)
 		if err != nil {
 			return "", err
 		}
 
 		hash, err := bcrypt.GenerateFromPassword(([]byte)(queryResult), 10)
-		exitOnCtrlC(err)
+		common.ExitOnCtrlC(err)
 		if err != nil {
 			return "", err
 		}
@@ -83,8 +60,8 @@ Flux will monitor these files to pick up configuration changes.
 `,
 		}
 		var queryResult string
-		err = survey.AskOne(prompt, &queryResult, withValidator("required,url,startswith=ssh://"))
-		exitOnCtrlC(err)
+		err = survey.AskOne(prompt, &queryResult, common.WithValidator("required,url,startswith=ssh://"))
+		common.ExitOnCtrlC(err)
 		if err != nil {
 			return nil, err
 		}
@@ -101,8 +78,8 @@ You can store configuration files for multiple gardeners (e.g. prod, staging, de
 `,
 		}
 		var queryResult string
-		err = survey.AskOne(prompt, &queryResult, withValidator("required"))
-		exitOnCtrlC(err)
+		err = survey.AskOne(prompt, &queryResult, common.WithValidator("required"))
+		common.ExitOnCtrlC(err)
 		if err != nil {
 			return nil, err
 		}
@@ -127,8 +104,8 @@ If you feel like this list in incomplete, contact the 23T support.
 `,
 		}
 		var queryResult string
-		err = survey.AskOne(prompt, &queryResult, withValidator("required"))
-		exitOnCtrlC(err)
+		err = survey.AskOne(prompt, &queryResult, common.WithValidator("required"))
+		common.ExitOnCtrlC(err)
 		if err != nil {
 			return nil, err
 		}
@@ -145,8 +122,8 @@ For clusters hosted on Azure, this could be e.g. germanywestcentral or westeurop
 `,
 		}
 		var queryResult string
-		err = survey.AskOne(prompt, &queryResult, withValidator("required"))
-		exitOnCtrlC(err)
+		err = survey.AskOne(prompt, &queryResult, common.WithValidator("required"))
+		common.ExitOnCtrlC(err)
 		if err != nil {
 			return nil, err
 		}
@@ -163,8 +140,8 @@ Therefore, the node CIDR should match a network that comprises all ip addresses 
 `,
 		}
 		var queryResult string
-		err = survey.AskOne(prompt, &queryResult, withValidator("required,cidr"))
-		exitOnCtrlC(err)
+		err = survey.AskOne(prompt, &queryResult, common.WithValidator("required,cidr"))
+		common.ExitOnCtrlC(err)
 		if err != nil {
 			return nil, err
 		}
@@ -195,7 +172,7 @@ Automatically detecting VPA from within the cluster isn't reliable, so if you ch
 		var queryResult string
 
 		err = survey.AskOne(prompt, &queryResult)
-		exitOnCtrlC(err)
+		common.ExitOnCtrlC(err)
 		if err != nil {
 			return false, err
 		}
@@ -231,8 +208,8 @@ func queryDomainConfig() (*domainConfiguration, error) {
 Gardener components will be available as subdomains of this (e.g dashboard.<gardener.my-company.io>).
 Note that it has to be delegated to the chosen DNS provider.`,
 	}
-	err = survey.AskOne(prompt, &domain, withValidator("required,fqdn"))
-	exitOnCtrlC(err)
+	err = survey.AskOne(prompt, &domain, common.WithValidator("required,fqdn"))
+	common.ExitOnCtrlC(err)
 	if err != nil {
 		return nil, err
 	}
@@ -241,8 +218,8 @@ Note that it has to be delegated to the chosen DNS provider.`,
 		Message: "Define your DNS provider",
 		Options: []string{common.DNS_PROVIDER_AZURE_DNS, common.DNS_PROVIDER_OPENSTACK_DESIGNATE, common.DNS_PROVIDER_AWS_ROUTE_53},
 	}
-	err = survey.AskOne(prompt, &provider, withValidator("required"))
-	exitOnCtrlC(err)
+	err = survey.AskOne(prompt, &provider, common.WithValidator("required"))
+	common.ExitOnCtrlC(err)
 	if err != nil {
 		return nil, err
 	}
@@ -280,7 +257,7 @@ func (d *dnsCredentialsAzure) parseCredentials() error {
 	}
 
 	err := survey.Ask(qs, d)
-	exitOnCtrlC(err)
+	common.ExitOnCtrlC(err)
 	if err != nil {
 		return err
 	}
@@ -311,7 +288,7 @@ func (d *dnsCredentialsOSDesignate) parseCredentials() error {
 	}
 
 	err := survey.Ask(qs, d)
-	exitOnCtrlC(err)
+	common.ExitOnCtrlC(err)
 	if err != nil {
 		return err
 	}
@@ -335,13 +312,9 @@ func (d *dnsCredentialsAWS53) parseCredentials() error {
 	}
 
 	err := survey.Ask(qs, d)
-	exitOnCtrlC(err)
+	common.ExitOnCtrlC(err)
 	if err != nil {
 		return err
 	}
 	return nil
-}
-
-func withValidator(tag string) survey.AskOpt {
-	return survey.WithValidator(common.MakeValidatorFn(tag))
 }

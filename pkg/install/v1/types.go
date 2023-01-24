@@ -1,4 +1,4 @@
-package install
+package installv1
 
 type KeConfig struct {
 	Version          string              `yaml:"version"`

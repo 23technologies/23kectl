@@ -1,4 +1,4 @@
-package install
+package installv1
 
 import (
 	"bytes"
@@ -15,34 +15,6 @@ import (
 )
 
 func createBucketSecret(kubeClient client.WithWatch) error {
-
-	queryConfigKey("bucket.accesskey", func() (any, error) {
-		prompt := &survey.Input{
-			Message: "Please enter the accesskey, you got from 23T. This is part of your 23ke license.",
-		}
-		var queryResult string
-		err := survey.AskOne(prompt, &queryResult, withValidator("required"))
-		exitOnCtrlC(err)
-		if err != nil {
-			return nil, err
-		}
-
-		return queryResult, nil
-	})
-
-	queryConfigKey("bucket.secretkey", func() (any, error) {
-		prompt := &survey.Input{
-			Message: "Please enter the secretkey, you got from 23T. This is part of your 23ke license.",
-		}
-		var queryResult string
-		err := survey.AskOne(prompt, &queryResult, withValidator("required"))
-		exitOnCtrlC(err)
-		if err != nil {
-			return nil, err
-		}
-
-		return queryResult, nil
-	})
 
 	sec := corev1.Secret{
 		ObjectMeta: v1.ObjectMeta{
@@ -75,8 +47,8 @@ func create23keConfigSecret(kubeClient client.WithWatch) error {
 			Default: viper.GetString("admin.email"),
 		}
 		var queryResult string
-		err := survey.AskOne(prompt, &queryResult, withValidator("required,email"))
-		exitOnCtrlC(err)
+		err := survey.AskOne(prompt, &queryResult, common.WithValidator("required,email"))
+		common.ExitOnCtrlC(err)
 		if err != nil {
 			return nil, err
 		}
@@ -89,36 +61,7 @@ func create23keConfigSecret(kubeClient client.WithWatch) error {
 		if err != nil {
 			return nil, err
 		}
-
 		return domainConfig, nil
-	})
-
-	queryConfigKey("version", func() (any, error) {
-		prompt := &survey.Input{
-			Message: "Please enter the version to install.",
-		}
-		var queryResult string
-		err := survey.AskOne(prompt, &queryResult, withValidator("required"))
-		exitOnCtrlC(err)
-		if err != nil {
-			return nil, err
-		}
-
-		return queryResult, nil
-	})
-
-	queryConfigKey("bucket.endpoint", func() (any, error) {
-		prompt := &survey.Input{
-			Message: "Please enter the bucket endpoint, you got from 23T. This is part of your 23ke license.",
-		}
-		var queryResult string
-		err := survey.AskOne(prompt, &queryResult, withValidator("required"))
-		exitOnCtrlC(err)
-		if err != nil {
-			return nil, err
-		}
-
-		return queryResult, nil
 	})
 
 	fmt.Println("Creating '23ke-config' secret")
@@ -177,4 +120,4 @@ stringData:
 	}
 
 	return nil
-}
+	}

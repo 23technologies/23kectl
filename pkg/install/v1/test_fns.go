@@ -1,6 +1,6 @@
 //go:build test
 
-package install
+package installv1
 
 import (
 	"github.com/go-git/go-git/v5/plumbing/transport/ssh"
@@ -11,22 +11,6 @@ import (
 
 var TestConfig map[string]any
 var HostName = "github.com"
-
-var CreateKubeClient = createKubeClient
-var Install = install
-var InstallFlux = installFlux
-var CreateBucketSecret = createBucketSecret
-var CompleteKeConfig = completeKeConfig
-var QueryAdminConfig = queryAdminConfig
-var QueryBaseClusterConfig = queryBaseClusterConfig
-var GenerateDeployKey = generateDeployKey
-var Create23keConfigSecret = create23keConfigSecret
-var Create23keBucket = create23keBucket
-var CreateGitRepositories = createGitRepositories
-var CreateAddonsKs = createAddonsKs
-var CreateKustomizations = createKustomizations
-var UpdateConfigRepo = updateConfigRepo
-var WriteConfigDir = writeConfigDir
 
 func init() {
 	blockUntilKeyCanRead = func(_ string, _ *ssh.PublicKeys, _ string) {}

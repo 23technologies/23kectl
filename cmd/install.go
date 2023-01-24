@@ -4,11 +4,14 @@ Copyright © 2022 NAME HERE <EMAIL ADDRESS>
 package cmd
 
 import (
+	"fmt"
+	"os"
+
+	"github.com/23technologies/23kectl/pkg/common"
 	"github.com/23technologies/23kectl/pkg/install"
 	"github.com/23technologies/23kectl/pkg/logger"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"os"
 )
 
 // installCmd represents the install command
@@ -36,16 +39,14 @@ Dependent on your relationship with 23T you will be charged for using 23KE.
 	RunE: func(cmd *cobra.Command, args []string) error {
 		// todo check required flags
 
-		config := install.KeConfig{}
 		viper.ReadInConfig()
-		install.UnmarshalKeConfig(&config)
 
 		kubeConfig, err := cmd.Flags().GetString("kubeconfig")
 		if err != nil {
 			return err
 		}
 
-		err = install.Install(kubeConfig, &config)
+		install.Install(kubeConfig)
 
 		if err != nil {
 			logger.Get().Error(err, "An unexpected error occurred.")
@@ -56,8 +57,18 @@ Dependent on your relationship with 23T you will be charged for using 23KE.
 	},
 }
 
+var versionCmd = &cobra.Command{
+	Use:   "version",
+	Short: "Print the version number of 23kectl",
+	Long:  `Of course, I am willing to tell you the 23kectl version`,
+	Run: func(cmd *cobra.Command, args []string) {
+		fmt.Println(common.Version)
+	},
+}
+
 func init() {
 	rootCmd.AddCommand(installCmd)
+	rootCmd.AddCommand(versionCmd)
 
 	// Here you will define your flags and configuration settings.
 

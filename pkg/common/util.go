@@ -4,9 +4,12 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/hex"
+	"errors"
 	"fmt"
+	"os"
 	"strings"
 
+	"github.com/AlecAivazis/survey/v2/terminal"
 	"github.com/fatih/color"
 	"github.com/go-playground/validator/v10"
 )
@@ -52,4 +55,14 @@ func RandHex(bytes int) string {
 	byteArr := make([]byte, bytes)
 	rand.Read(byteArr)
 	return hex.EncodeToString(byteArr)
+}
+
+
+func ExitOnCtrlC(err error) {
+	if errors.Is(err, terminal.InterruptErr) {
+		fmt.Println("Ctrl+C, exiting.")
+		os.Exit(1)
+	} else if err != nil {
+		panic(err)
+	}
 }
