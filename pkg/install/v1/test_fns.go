@@ -1,12 +1,14 @@
-//go:build test
-
 package installv1
 
 import (
+	"github.com/fluxcd/flux2/pkg/manifestgen"
+	fluxInstall "github.com/fluxcd/flux2/pkg/manifestgen/install"
 	"github.com/go-git/go-git/v5/plumbing/transport/ssh"
-	"github.com/spf13/viper"
+
 	"net/url"
 	"strings"
+
+	"github.com/spf13/viper"
 )
 
 var TestConfig map[string]any
@@ -31,5 +33,15 @@ func init() {
 		viper.Set(configKey, result)
 
 		return nil
+	}
+
+	createFluxManifest = func() (*manifestgen.Manifest, error)  {
+		opts := fluxInstall.MakeDefaultOptions()
+		manifest, err := fluxInstall.Generate(opts, "")
+		if err != nil {
+			return nil, err
+		}
+		return manifest, nil
+
 	}
 }

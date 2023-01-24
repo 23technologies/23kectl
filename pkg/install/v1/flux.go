@@ -2,13 +2,16 @@ package installv1
 
 import (
 	"context"
-	"github.com/23technologies/23kectl/pkg/flux_utils"
-	"github.com/fluxcd/flux2/pkg/manifestgen"
-	fluxInstall "github.com/fluxcd/flux2/pkg/manifestgen/install"
-	runclient "github.com/fluxcd/pkg/runtime/client"
-	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"os"
 	"path"
+
+	"github.com/23technologies/23kectl/pkg/common"
+	utils "github.com/23technologies/23kectl/pkg/flux_utils"
+	"github.com/fluxcd/flux2/pkg/manifestgen"
+	runclient "github.com/fluxcd/pkg/runtime/client"
+	"github.com/minio/minio-go/v7"
+	"github.com/spf13/viper"
+	"k8s.io/cli-runtime/pkg/genericclioptions"
 )
 
 func installFlux(kubeconfigArgs *genericclioptions.ConfigFlags, kubeclientOptions *runclient.Options) error {
@@ -23,8 +26,7 @@ func installFlux(kubeconfigArgs *genericclioptions.ConfigFlags, kubeclientOption
 
 	defer os.RemoveAll(tmpDir)
 
-	opts := fluxInstall.MakeDefaultOptions()
-	manifest, err := fluxInstall.Generate(opts, "")
+	manifest, err := createFluxManifest()
 	if err != nil {
 		return err
 	}
@@ -40,4 +42,34 @@ func installFlux(kubeconfigArgs *genericclioptions.ConfigFlags, kubeclientOption
 	}
 
 	return nil
+}
+
+// createFluxManifests ...
+var createFluxManifest = func() (*manifestgen.Manifest, error) {
+
+	s3Client, err := common.CreateMinioClient()
+	if err != nil {
+		return nil, err
+	}
+
+	obj, err := s3Client.GetObject(context.Background(), viper.GetString("version"),
+		"flux-system/gotk-components.yaml", minio.GetObjectOptions{})
+	if err != nil {
+		return nil, err
+	}
+
+	stat, err := obj.Stat()
+	if err != nil {
+		return nil, err
+	}
+
+	content := make([]byte, stat.Size)
+	obj.Read(content)
+
+	manifest := manifestgen.Manifest{
+		Path: "flux-system/gotk-components.yaml",
+	}
+	manifest.Content = string(content)
+
+	return &manifest, nil
 }
