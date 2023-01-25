@@ -1,20 +1,21 @@
-//go:build test
-
 package installv1_test
 
 import (
 	"context"
+	"os"
+	"path"
+	"testing"
+
 	"github.com/23technologies/23kectl/pkg/logger"
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"k8s.io/client-go/rest"
-	"os"
-	"path"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
-	"testing"
+
+	sourcecontrollerv1beta2 "github.com/fluxcd/source-controller/api/v1beta2"
 )
 
 var tmpFolder, _ = os.MkdirTemp("", "23kectl-test-*")
@@ -71,9 +72,11 @@ func createK8sTestenv(configPath string) (*envtest.Environment, client.WithWatch
 	Expect(err).NotTo(HaveOccurred())
 
 	k8sClient, err := client.NewWithWatch(cfg, client.Options{})
-
 	Expect(err).NotTo(HaveOccurred())
 	Expect(k8sClient).NotTo(BeNil())
+
+	err = sourcecontrollerv1beta2.AddToScheme(k8sClient.Scheme())
+	Expect(err).NotTo(HaveOccurred())
 
 	return testEnv, k8sClient
 }

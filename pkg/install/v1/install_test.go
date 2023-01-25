@@ -1,19 +1,22 @@
-//go:build test
-
 package installv1_test
 
 import (
+	"context"
 	"fmt"
+	"math/rand"
+	"os"
+	"os/exec"
+	"path"
+
 	install "github.com/23technologies/23kectl/pkg/install/v1"
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/spf13/viper"
-	"math/rand"
-	"os"
-	"os/exec"
-	"path"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	sourcecontrollerv1beta2 "github.com/fluxcd/source-controller/api/v1beta2"
 )
 
 var testConfig = map[string]any{
@@ -69,6 +72,10 @@ func init() {
 			var err error
 
 			viper.SetConfigFile(configFileName)
+			// we need to set the version and bucket.endpoint here, as
+			// it is set outside the versioned install pkg in production
+			viper.Set("version", testConfig["version"])
+			viper.Set("bucket.endpoint", testConfig["bucket.endpoint"])
 
 			_, err = git.PlainInit(configRepo, true)
 			if err != nil {
@@ -116,6 +123,18 @@ func init() {
 		})
 
 		It("should create23keBucket", func() {
+			key := client.ObjectKey{
+				Namespace: "flux-system",
+				Name:      "23ke",
+			}
+			
+			bucket := sourcecontrollerv1beta2.Bucket{}
+			err := k8sClient.Get(context.Background(), key, &bucket)
+			Expect(err).To(BeNil())
+			Expect(bucket.Name).To(BeEquivalentTo("23ke"))
+			Expect(bucket.Spec.BucketName).To(BeEquivalentTo(testConfig["version"]))
+			Expect(bucket.Spec.Endpoint).To(BeEquivalentTo(testConfig["bucket.endpoint"]))
+			Expect(bucket.Spec.SecretRef.Name).To(BeEquivalentTo("bucket-credentials"))
 			Expect(nil).To(BeNil())
 		})
 
