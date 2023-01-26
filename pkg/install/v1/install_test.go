@@ -3,17 +3,16 @@ package installv1_test
 import (
 	"context"
 	"fmt"
-	"math/rand"
-	"os"
-	"os/exec"
-	"path"
-
 	install "github.com/23technologies/23kectl/pkg/install/v1"
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/spf13/viper"
+	"math/rand"
+	"os"
+	"os/exec"
+	"path"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	kustomizecontrollerv1beta2 "github.com/fluxcd/kustomize-controller/api/v1beta2"
@@ -35,8 +34,8 @@ var testConfig = map[string]any{
 	"bucket.endpoint":                      "localhost:9000",
 	"bucket.secretkey":                     "minioadmin",
 	"clusteridentity":                      "garden-cluster-my-identity",
-	"dashboard.clientsecret":               "bXktZGFzaGJvYXJkLWNsaWVudC1zZWNyZXQ=",
-	"dashboard.sessionsecret":              "bXktZGFzaGJvYXJkLXNlc3Npb24tc2VjcmV0",
+	"dashboard.clientsecret":               "my-client-secret",
+	"dashboard.sessionsecret":              "my-session-secret",
 	"domainconfig": map[string]any{
 		"credentials": map[string]string{
 			"clientid":       "my-client-id",
@@ -82,6 +81,12 @@ func init() {
 			viper.Set("bucket.endpoint", testConfig["bucket.endpoint"])
 			viper.Set("bucket.accesskey", testConfig["bucket.accesskey"])
 			viper.Set("bucket.secretkey", testConfig["bucket.secretkey"])
+
+			// set these to prevent auto-generation
+			viper.Set("dashboard.sessionSecret", testConfig["dashboard.sessionsecret"])
+			viper.Set("dashboard.clientSecret", testConfig["dashboard.clientsecret"])
+			viper.Set("kubeApiServer.basicAuthPassword", testConfig["kubeapiserver.basicauthpassword"])
+			viper.Set("clusterIdentity", testConfig["clusteridentity"])
 
 			_, err = git.PlainInit(configRepo, true)
 			if err != nil {
@@ -130,10 +135,6 @@ func init() {
 			Expect(nil).To(BeNil())
 		})
 
-		It("should queryAdminConfig", func() {
-			Expect(nil).To(BeNil())
-		})
-
 		It("should queryBaseClusterConfig", func() {
 			Expect(nil).To(BeNil())
 		})
@@ -142,8 +143,39 @@ func init() {
 			Expect(nil).To(BeNil())
 		})
 
-		It("should create23keConfigSecret", func() {
-			Expect(nil).To(BeNil())
+		It("should create23keConfigSecret", func(ctx SpecContext) {
+			expectedValues := fmt.Sprintf(`
+                clusterIdentity: %s
+                dashboard:
+                  clientSecret: %s
+                  sessionSecret: %s
+                domains:
+                  global:
+                    credentials:
+                      clientid: my-client-id
+                      clientsecret: my-client-secret
+                      subscriptionid: my-subscription-id
+                      tenantid: my-tenantid
+                    domain: my-domain.example.org
+                    provider: azure-dns
+                issuer:
+                  acme:
+                    email: test@example.org
+                kubeApiServer:
+                  basicAuthPassword: %s
+            `,
+				testConfig["clusteridentity"],
+				testConfig["dashboard.clientsecret"],
+				testConfig["dashboard.sessionsecret"],
+				testConfig["kubeapiserver.basicauthpassword"],
+			)
+
+			key := client.ObjectKey{Namespace: "flux-system", Name: "23ke-config"}
+			secret := corev1.Secret{}
+			err := k8sClient.Get(ctx, key, &secret)
+			
+			Expect(err).NotTo(HaveOccurred())
+			Expect(secret.Data["values.yaml"]).To(MatchYAML(expectedValues))
 		})
 
 		It("should create23keBucket", func() {
@@ -162,9 +194,9 @@ func init() {
 		})
 
 		It("should createGitRepositories", func() {
-			
+
 			// TODO: Check, why this is failing
-			
+
 			// key := client.ObjectKey{
 			// 	Namespace: "flux-system",
 			// 	Name:      "23ke-config",
