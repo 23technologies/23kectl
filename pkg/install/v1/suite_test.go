@@ -16,6 +16,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 
 	sourcecontrollerv1beta2 "github.com/fluxcd/source-controller/api/v1beta2"
+	kustomizecontrollerv1beta2 "github.com/fluxcd/kustomize-controller/api/v1beta2"
 )
 
 var tmpFolder, _ = os.MkdirTemp("", "23kectl-test-*")
@@ -76,6 +77,8 @@ func createK8sTestenv(configPath string) (*envtest.Environment, client.WithWatch
 	Expect(k8sClient).NotTo(BeNil())
 
 	err = sourcecontrollerv1beta2.AddToScheme(k8sClient.Scheme())
+	Expect(err).NotTo(HaveOccurred())
+	err = kustomizecontrollerv1beta2.AddToScheme(k8sClient.Scheme())
 	Expect(err).NotTo(HaveOccurred())
 
 	return testEnv, k8sClient
