@@ -131,16 +131,12 @@ func init() {
 			Expect(secret.Type).To(BeEquivalentTo(corev1.SecretTypeOpaque))
 		})
 
-		It("should completeKeConfig", func() {
-			Expect(nil).To(BeNil())
+		XIt("should completeKeConfig", func() {
+			// todo test detection of calico/cilium in the cluster, maybe others
 		})
 
-		It("should queryBaseClusterConfig", func() {
-			Expect(nil).To(BeNil())
-		})
-
-		It("should generateDeployKey", func() {
-			Expect(nil).To(BeNil())
+		XIt("should generateDeployKey", func() {
+			// todo test if existing deploy key is reused
 		})
 
 		It("should create23keConfigSecret", func(ctx SpecContext) {
@@ -173,7 +169,7 @@ func init() {
 			key := client.ObjectKey{Namespace: "flux-system", Name: "23ke-config"}
 			secret := corev1.Secret{}
 			err := k8sClient.Get(ctx, key, &secret)
-			
+
 			Expect(err).NotTo(HaveOccurred())
 			Expect(secret.Data["values.yaml"]).To(MatchYAML(expectedValues))
 		})
