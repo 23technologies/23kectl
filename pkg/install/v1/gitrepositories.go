@@ -84,6 +84,7 @@ func createGitRepositories(kubeClient client.WithWatch) error {
 
 	err = kubeClient.Create(context.TODO(), &gitrepo23keconfig, &client.CreateOptions{})
 	if err != nil {
+		// todo: is this really an error we want to swallow?
 		log.Info("Couldn't create git source "+common.CONFIG_23KE_GITREPO_NAME, "error", err)
 	}
 	return nil

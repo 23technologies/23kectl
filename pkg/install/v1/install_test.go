@@ -189,21 +189,20 @@ func init() {
 			Expect(bucket.Spec.SecretRef.Name).To(BeEquivalentTo("bucket-credentials"))
 		})
 
-		It("should createGitRepositories", func() {
+		XIt("should create GitRepositories", func() {
+			// todo: make this work (we're using a file:// url during the tests, but flux doesn't accept anything but http(s) and ssh)
 
-			// TODO: Check, why this is failing
+			key := client.ObjectKey{
+				Namespace: "flux-system",
+				Name:      "23ke-config",
+			}
 
-			// key := client.ObjectKey{
-			// 	Namespace: "flux-system",
-			// 	Name:      "23ke-config",
-			// }
-
-			// gitrepo := sourcecontrollerv1beta2.GitRepository{}
-			// err := k8sClient.Get(context.Background(), key, &gitrepo)
-			// Expect(err).To(BeNil())
-			// Expect(gitrepo.Name).To(BeEquivalentTo("23ke-config"))
-			// Expect(gitrepo.Spec.URL).To(BeEquivalentTo(testConfig["admin.gitrepourl"]))
-			// Expect(gitrepo.Spec.Reference).To(BeEquivalentTo(sourcecontrollerv1beta2.GitRepositoryRef{Branch: testConfig["admin.gitrepobranch"].(string)}))
+			gitrepo := sourcecontrollerv1beta2.GitRepository{}
+			err := k8sClient.Get(context.Background(), key, &gitrepo)
+			Expect(err).To(BeNil())
+			Expect(gitrepo.Name).To(BeEquivalentTo("23ke-config"))
+			Expect(gitrepo.Spec.URL).To(BeEquivalentTo(testConfig["admin.gitrepourl"]))
+			Expect(gitrepo.Spec.Reference).To(BeEquivalentTo(sourcecontrollerv1beta2.GitRepositoryRef{Branch: testConfig["admin.gitrepobranch"].(string)}))
 
 			Expect(nil).To(BeNil())
 		})
