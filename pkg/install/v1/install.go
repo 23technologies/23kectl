@@ -162,10 +162,11 @@ func completeKeConfig(kubeClient client.WithWatch) error {
 	viper.SetDefault("clusterIdentity", "garden-cluster-"+common.RandHex(5)+"-identity")
 
 	queryConfigKey("gardenlet.seedPodCidr", func() (any, error) {
-		// We assume that either calico or cilium are used as CNI
-		// Therefore, we search for an ippool with name "default-ipv4-ippool" for the calico case.
-		// In the cilium case, we search for the configmap "cilium-config" in the kube-system namespace
-		// If none of these are found, we ask the user for input
+		// If either calico or cilium are used as CNI we can pull the needed info from the cluster
+		// Otherwise prompt the user
+
+		// CALICO
+		// If calico's installed there's an ippool with name "default-ipv4-ippool".
 		ipPool := unstructured.Unstructured{}
 		gvk := schema.GroupVersionKind{
 			Group:   "crd.projectcalico.org",
@@ -179,31 +180,31 @@ func completeKeConfig(kubeClient client.WithWatch) error {
 		}, &ipPool)
 		if err == nil {
 			return ipPool.Object["spec"].(map[string]interface{})["cidr"].(string), nil
-		} else {
-
-			ciliumConfig := corev1.ConfigMap{}
-			err = kubeClient.Get(context.Background(), client.ObjectKey{
-				Namespace: "kube-system",
-				Name:      "cilium-config",
-			}, &ciliumConfig)
-			if err != nil {
-				// we did not find calico or cilium related config
-				// let's prompt for the Pod CIDR
-				prompt := &survey.Input{
-					Message: "Please enter the pod CIDR of your base cluster in the form: x.x.x.x/y",
-				}
-				var queryResult string
-				err := survey.AskOne(prompt, &queryResult, common.WithValidator("required,cidr"))
-				common.ExitOnCtrlC(err)
-				if err != nil {
-					return nil, err
-				}
-				return queryResult, nil
-
-			} else {
-				return ciliumConfig.Data["cluster-pool-ipv4-cidr"], nil
-			}
 		}
+
+		// CILIUM
+		// cilium uses a configmap "cilium-config" in the kube-system namespace
+		ciliumConfig := corev1.ConfigMap{}
+		err = kubeClient.Get(context.Background(), client.ObjectKey{
+			Namespace: "kube-system",
+			Name:      "cilium-config",
+		}, &ciliumConfig)
+		if err == nil {
+			return ciliumConfig.Data["cluster-pool-ipv4-cidr"], nil
+		}
+
+		// UNKNOWN
+		// let's prompt for the Pod CIDR
+		prompt := &survey.Input{
+			Message: "Please enter the pod CIDR of your base cluster in the form: x.x.x.x/y",
+		}
+		var queryResult string
+		err = survey.AskOne(prompt, &queryResult, common.WithValidator("required,cidr"))
+		common.ExitOnCtrlC(err)
+		if err != nil {
+			return nil, err
+		}
+		return queryResult, nil
 	})
 
 	if !viper.IsSet("gardenlet.seedServiceCidr") {
