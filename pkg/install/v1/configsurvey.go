@@ -1,68 +1,55 @@
 package install
 
 import (
-	"errors"
-	"fmt"
 	"github.com/23technologies/23kectl/pkg/common"
-	"os"
 
 	"github.com/AlecAivazis/survey/v2"
-	"github.com/AlecAivazis/survey/v2/terminal"
 	"github.com/spf13/viper"
 	"golang.org/x/crypto/bcrypt"
 )
-
-func exitOnCtrlC(err error) {
-	if errors.Is(err, terminal.InterruptErr) {
-		fmt.Println("Ctrl+C, exiting.")
-		os.Exit(1)
-	} else if err != nil {
-		panic(err)
-	}
-}
 
 // queryAdminConfig ...
 func queryAdminConfig() error {
 	var err error
 	var prompt survey.Prompt
 
-	if !viper.IsSet("admin.email") {
+	Container.QueryConfigKey("admin.email", func() (any, error) {
 		prompt = &survey.Input{
 			Message: `Please enter your email address.
 This will be the email address to use, when you want to login to the Gardener dashboard.`,
 		}
 		var queryResult string
-		err = survey.AskOne(prompt, &queryResult, withValidator("required,email"))
-		exitOnCtrlC(err)
+		err = survey.AskOne(prompt, &queryResult, common.WithValidator("required,email"))
+		common.ExitOnCtrlC(err)
 		if err != nil {
-			return err
+			return "", err
 		}
-		viper.Set("admin.email", queryResult)
-		viper.WriteConfig()
-	}
 
-	if !viper.IsSet("admin.password") {
+		return queryResult, nil
+	})
+
+	Container.QueryConfigKey("admin.password", func() (any, error) {
 		prompt = &survey.Password{
 			Message: `Please enter the administrator password to use.
 This will be the password to use, when you login to the Gardener dashboard.`,
 		}
 		var queryResult string
-		err = survey.AskOne(prompt, &queryResult, withValidator("required"))
-		exitOnCtrlC(err)
+		err = survey.AskOne(prompt, &queryResult, common.WithValidator("required"))
+		common.ExitOnCtrlC(err)
 		if err != nil {
-			return err
+			return "", err
 		}
 
 		hash, err := bcrypt.GenerateFromPassword(([]byte)(queryResult), 10)
-		exitOnCtrlC(err)
+		common.ExitOnCtrlC(err)
 		if err != nil {
-			return err
+			return "", err
 		}
-		viper.Set("admin.password", string(hash))
-		viper.WriteConfig()
-	}
 
-	if !viper.IsSet("admin.gitrepourl") {
+		return string(hash), nil
+	})
+
+	Container.QueryConfigKey("admin.gitrepourl", func() (any, error) {
 		prompt = &survey.Input{
 			Message: "Please enter an ssh git remote in URL form. e.g. ssh://git@github.com/User/Repo.git",
 			Help: `
@@ -71,16 +58,15 @@ Flux will monitor these files to pick up configuration changes.
 `,
 		}
 		var queryResult string
-		err = survey.AskOne(prompt, &queryResult, withValidator("required,url,startswith=ssh://"))
-		exitOnCtrlC(err)
+		err = survey.AskOne(prompt, &queryResult, common.WithValidator("required,url,startswith=ssh://"))
+		common.ExitOnCtrlC(err)
 		if err != nil {
-			return err
+			return nil, err
 		}
-		viper.Set("admin.gitrepourl", queryResult)
-		viper.WriteConfig()
-	}
+		return queryResult, nil
+	})
 
-	if !viper.IsSet("admin.gitrepobranch") {
+	Container.QueryConfigKey("admin.gitrepobranch", func() (any, error) {
 		prompt = &survey.Input{
 			Message: "Please enter the git branch to use. Will be created if it doesn't exist.",
 			Default: "main",
@@ -90,14 +76,13 @@ You can store configuration files for multiple gardeners (e.g. prod, staging, de
 `,
 		}
 		var queryResult string
-		err = survey.AskOne(prompt, &queryResult, withValidator("required"))
-		exitOnCtrlC(err)
+		err = survey.AskOne(prompt, &queryResult, common.WithValidator("required"))
+		common.ExitOnCtrlC(err)
 		if err != nil {
-			return err
+			return nil, err
 		}
-		viper.Set("admin.gitrepobranch", queryResult)
-		viper.WriteConfig()
-	}
+		return queryResult, nil
+	})
 
 	return nil
 }
@@ -107,7 +92,7 @@ func queryBaseClusterConfig() error {
 	var prompt survey.Prompt
 
 	// todo explain to user. what's this for?
-	if !viper.IsSet("baseCluster.provider") {
+	Container.QueryConfigKey("baseCluster.provider", func() (any, error) {
 		prompt = &survey.Select{
 			Message: "Select the provider of your base cluster",
 			Options: []string{"hcloud", "azure", "aws", "openstack"},
@@ -117,16 +102,15 @@ If you feel like this list in incomplete, contact the 23T support.
 `,
 		}
 		var queryResult string
-		err = survey.AskOne(prompt, &queryResult, withValidator("required"))
-		exitOnCtrlC(err)
+		err = survey.AskOne(prompt, &queryResult, common.WithValidator("required"))
+		common.ExitOnCtrlC(err)
 		if err != nil {
-			return err
+			return nil, err
 		}
-		viper.Set("baseCluster.provider", queryResult)
-		viper.WriteConfig()
-	}
+		return queryResult, nil
+	})
 
-	if !viper.IsSet("baseCluster.Region") {
+	Container.QueryConfigKey("baseCluster.Region", func() (any, error) {
 		prompt = &survey.Input{
 			Message: "Please enter the region of your base cluster",
 			Help: `
@@ -136,17 +120,16 @@ For clusters hosted on Azure, this could be e.g. germanywestcentral or westeurop
 `,
 		}
 		var queryResult string
-		err = survey.AskOne(prompt, &queryResult, withValidator("required"))
-		exitOnCtrlC(err)
+		err = survey.AskOne(prompt, &queryResult, common.WithValidator("required"))
+		common.ExitOnCtrlC(err)
 		if err != nil {
-			return err
+			return nil, err
 		}
-		viper.Set("baseCluster.region", queryResult)
-		viper.WriteConfig()
-	}
+		return queryResult, nil
+	})
 
 	// todo explain to user. document where to find it on supported providers
-	if !viper.IsSet("baseCluster.nodeCidr") {
+	Container.QueryConfigKey("baseCluster.nodeCidr", func() (any, error) {
 		prompt = &survey.Input{
 			Message: "Please enter the node CIDR of your base cluster in the form: x.x.x.x/y",
 			Help: `
@@ -155,17 +138,19 @@ Therefore, the node CIDR should match a network that comprises all ip addresses 
 `,
 		}
 		var queryResult string
-		err = survey.AskOne(prompt, &queryResult, withValidator("required,cidr"))
-		exitOnCtrlC(err)
+		err = survey.AskOne(prompt, &queryResult, common.WithValidator("required,cidr"))
+		common.ExitOnCtrlC(err)
 		if err != nil {
-			return err
+			return nil, err
 		}
-		viper.Set("baseCluster.nodeCidr", queryResult)
-	}
-	viper.Set("gardenlet.seedNodeCidr", viper.GetString("baseCluster.nodeCidr"))
-	viper.WriteConfig()
+		return queryResult, nil
+	})
 
-	if !viper.IsSet("baseCluster.hasVerticalPodAutoscaler") {
+	Container.QueryConfigKey("gardenlet.seedNodeCidr", func() (any, error) {
+		return viper.GetString("baseCluster.nodeCidr"), nil
+	})
+
+	Container.QueryConfigKey("baseCluster.hasVerticalPodAutoscaler", func() (any, error) {
 		const (
 			yes       = "Yes"
 			no        = "No"
@@ -185,9 +170,9 @@ Automatically detecting VPA from within the cluster isn't reliable, so if you ch
 		var queryResult string
 
 		err = survey.AskOne(prompt, &queryResult)
-		exitOnCtrlC(err)
+		common.ExitOnCtrlC(err)
 		if err != nil {
-			return err
+			return false, err
 		}
 
 		var hasVerticalPodAutoscaler bool
@@ -205,9 +190,9 @@ If the base cluster already provides one, both may keep reversing the other one'
 Gardener will work but you'll see lots of pod restarts. Not recommended for production use.`)
 			common.PressEnterToContinue()
 		}
-		viper.Set("baseCluster.hasVerticalPodAutoscaler", hasVerticalPodAutoscaler)
-		viper.WriteConfig()
-	}
+		return hasVerticalPodAutoscaler, nil
+	})
+
 	return nil
 }
 
@@ -221,8 +206,8 @@ func queryDomainConfig() (*domainConfiguration, error) {
 Gardener components will be available as subdomains of this (e.g dashboard.<gardener.my-company.io>).
 Note that it has to be delegated to the chosen DNS provider.`,
 	}
-	err = survey.AskOne(prompt, &domain, withValidator("required,fqdn"))
-	exitOnCtrlC(err)
+	err = survey.AskOne(prompt, &domain, common.WithValidator("required,fqdn"))
+	common.ExitOnCtrlC(err)
 	if err != nil {
 		return nil, err
 	}
@@ -231,8 +216,8 @@ Note that it has to be delegated to the chosen DNS provider.`,
 		Message: "Define your DNS provider",
 		Options: []string{common.DNS_PROVIDER_AZURE_DNS, common.DNS_PROVIDER_OPENSTACK_DESIGNATE, common.DNS_PROVIDER_AWS_ROUTE_53},
 	}
-	err = survey.AskOne(prompt, &provider, withValidator("required"))
-	exitOnCtrlC(err)
+	err = survey.AskOne(prompt, &provider, common.WithValidator("required"))
+	common.ExitOnCtrlC(err)
 	if err != nil {
 		return nil, err
 	}
@@ -270,7 +255,7 @@ func (d *dnsCredentialsAzure) parseCredentials() error {
 	}
 
 	err := survey.Ask(qs, d)
-	exitOnCtrlC(err)
+	common.ExitOnCtrlC(err)
 	if err != nil {
 		return err
 	}
@@ -301,7 +286,7 @@ func (d *dnsCredentialsOSDesignate) parseCredentials() error {
 	}
 
 	err := survey.Ask(qs, d)
-	exitOnCtrlC(err)
+	common.ExitOnCtrlC(err)
 	if err != nil {
 		return err
 	}
@@ -325,13 +310,9 @@ func (d *dnsCredentialsAWS53) parseCredentials() error {
 	}
 
 	err := survey.Ask(qs, d)
-	exitOnCtrlC(err)
+	common.ExitOnCtrlC(err)
 	if err != nil {
 		return err
 	}
 	return nil
-}
-
-func withValidator(tag string) survey.AskOpt {
-	return survey.WithValidator(common.MakeValidatorFn(tag))
 }

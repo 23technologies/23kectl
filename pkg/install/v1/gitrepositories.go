@@ -2,8 +2,8 @@ package install
 
 import (
 	"context"
-	"errors"
 	"fmt"
+	"github.com/pkg/errors"
 	"time"
 
 	"github.com/23technologies/23kectl/pkg/common"
@@ -84,12 +84,13 @@ func createGitRepositories(kubeClient client.WithWatch) error {
 
 	err = kubeClient.Create(context.TODO(), &gitrepo23keconfig, &client.CreateOptions{})
 	if err != nil {
+		// todo: is this really an error we want to swallow?
 		log.Info("Couldn't create git source "+common.CONFIG_23KE_GITREPO_NAME, "error", err)
 	}
 	return nil
 }
 
-func updateConfigRepo(publicKeys ssh.PublicKeys) error {
+func updateConfigRepo(publicKeys *ssh.PublicKeys) error {
 	log := logger.Get("updateConfigRepo")
 	gitRepo := viper.GetString("admin.gitrepourl")
 
@@ -99,11 +100,11 @@ func updateConfigRepo(publicKeys ssh.PublicKeys) error {
 	fmt.Printf("Cloning config repo to memory\n")
 	repository, err := git.Clone(memory.NewStorage(), workTreeFs, &git.CloneOptions{
 		URL:        gitRepo,
-		Auth:       &publicKeys,
+		Auth:       publicKeys,
 		NoCheckout: true,
 	})
 	if err != nil && !errors.Is(err, transport.ErrEmptyRemoteRepository) {
-		panic(err)
+		return err
 	}
 
 	branchName := viper.GetString("admin.gitRepoBranch")
@@ -173,7 +174,7 @@ func updateConfigRepo(publicKeys ssh.PublicKeys) error {
 
 		log.Info("Pushing to config repo")
 		err = repository.Push(&git.PushOptions{
-			Auth: &publicKeys,
+			Auth: publicKeys,
 		})
 		if err != nil {
 			return err

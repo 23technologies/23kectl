@@ -20,3 +20,4 @@ kubeconfig
 out.yaml
 23kectl
 log.txt
+kubebuilder-assets/

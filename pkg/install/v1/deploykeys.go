@@ -3,9 +3,10 @@ package install
 import (
 	"context"
 	"fmt"
-	"github.com/23technologies/23kectl/pkg/common"
 	"net/url"
 	"strings"
+
+	"github.com/23technologies/23kectl/pkg/common"
 
 	"github.com/fluxcd/flux2/pkg/manifestgen/sourcesecret"
 	"github.com/go-git/go-git/v5"
@@ -15,6 +16,7 @@ import (
 	"github.com/go-git/go-git/v5/storage/memory"
 	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	k8syaml "sigs.k8s.io/yaml"
 )
 
@@ -26,6 +28,9 @@ func generateDeployKey(kubeClient client.WithWatch, secretName string, repoUrl s
 	}, &sec)
 	exists := err == nil
 
+	testEnv := &envtest.Environment{}
+
+	_ = testEnv
 	var keys *ssh.PublicKeys
 
 	if exists {
@@ -33,7 +38,7 @@ func generateDeployKey(kubeClient client.WithWatch, secretName string, repoUrl s
 
 		fmt.Println(`A key was already deployed to your cluster and I did not change it.`)
 
-		blockUntilKeyCanRead(repoUrl, keys, string(sec.Data["identity.pub"]))
+		Container.BlockUntilKeyCanRead(repoUrl, keys, string(sec.Data["identity.pub"]))
 
 		return keys, nil
 	} else {
@@ -46,7 +51,7 @@ func generateDeployKey(kubeClient client.WithWatch, secretName string, repoUrl s
 		// define some options for the generation of the flux source secret
 		sourceSecOpts := sourcesecret.MakeDefaultOptions()
 		sourceSecOpts.PrivateKeyAlgorithm = "ed25519"
-		sourceSecOpts.SSHHostname = repourl.Host
+		sourceSecOpts.SSHHostname = Container.GetSSHHostname(repourl)
 		sourceSecOpts.Name = secretName
 
 		// generate the flux source secret manifest and store it as []byte in the shootResources
@@ -65,11 +70,17 @@ func generateDeployKey(kubeClient client.WithWatch, secretName string, repoUrl s
 
 		fmt.Println(`I created an ssh key for you.`)
 
-		kubeClient.Create(context.Background(), &fluxRepoSecret)
+		err = kubeClient.Create(context.Background(), &fluxRepoSecret)
+		if err != nil {
+			return nil, err
+		}
 
-		keys, _ = ssh.NewPublicKeys("git", fluxRepoSecret.Data["identity"], "")
+		keys, err = ssh.NewPublicKeys("git", fluxRepoSecret.Data["identity"], "")
+		if err != nil {
+			return nil, err
+		}
 
-		blockUntilKeyCanRead(repoUrl, keys, string(fluxRepoSecret.Data["identity.pub"]))
+		Container.BlockUntilKeyCanRead(repoUrl, keys, string(fluxRepoSecret.Data["identity.pub"]))
 
 		return keys, nil
 	}
@@ -106,4 +117,8 @@ func keyCanRead(url string, publicKeys *ssh.PublicKeys) error {
 		return err
 	}
 	return nil
+}
+
+func getSSHHostname(repourl *url.URL) string {
+	return repourl.Host
 }

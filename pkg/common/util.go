@@ -4,20 +4,14 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/hex"
+	"errors"
 	"fmt"
-	"sort"
+	"os"
 	"strings"
 
+	"github.com/AlecAivazis/survey/v2/terminal"
 	"github.com/fatih/color"
 	"github.com/go-playground/validator/v10"
-
-	"github.com/go-git/go-git/v5"
-	gitconfig "github.com/go-git/go-git/v5/config"
-	"github.com/go-git/go-git/v5/plumbing/transport/ssh"
-	"github.com/go-git/go-git/v5/storage/memory"
-
-	"github.com/Masterminds/semver/v3"
-	"github.com/akrennmair/slice"
 )
 
 func PressEnterToContinue() {
@@ -57,53 +51,18 @@ var PrintHighlight = color.New(colorHighlight).PrintlnFunc()
 // var printSuccess = color.New(colorSuccess).PrintlnFunc()
 var PrintWarn = color.New(colorWarn).PrintlnFunc()
 
-// list23keTag ...
-func List23keTags(publicKeys *ssh.PublicKeys) ([]string, error) {
-
-	rem := git.NewRemote(memory.NewStorage(), &gitconfig.RemoteConfig{
-		Name: "23ke-origin",
-		URLs: []string{"ssh://git@github.com/23technologies/23ke"},
-	})
-
-	refs, err := rem.List(&git.ListOptions{
-		Auth: publicKeys,
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	// Filters the references list and only keeps tags
-	var versions []*semver.Version
-	for _, ref := range refs {
-		if ref.Name().IsTag() {
-			v, err := semver.NewVersion(string(ref.Name().Short()))
-			if err != nil {
-				continue
-			}
-			versions = append(versions, v)
-		}
-	}
-
-	sort.Sort(semver.Collection(versions))
-
-	maxMinor := versions[len(versions)-1].Minor()
-	var maxMinorMinus2 uint64
-	if maxMinor <= 2 {
-		maxMinorMinus2 = 0
-	} else {
-		maxMinorMinus2 = maxMinor - 2
-	}
-
-	versions = slice.Filter(versions, func(v *semver.Version) bool { return v.Minor() >= maxMinorMinus2 })
-	// reverse the order of versions in order to list latest version first
-	for i, j := 0, len(versions)-1; i < j; i, j = i+1, j-1 {
-		versions[i], versions[j] = versions[j], versions[i]
-	}
-	return slice.Map(versions, func(v *semver.Version) string { return "v" + v.String() }), nil
-}
-
 func RandHex(bytes int) string {
 	byteArr := make([]byte, bytes)
 	rand.Read(byteArr)
 	return hex.EncodeToString(byteArr)
+}
+
+
+func ExitOnCtrlC(err error) {
+	if errors.Is(err, terminal.InterruptErr) {
+		fmt.Println("Ctrl+C, exiting.")
+		os.Exit(1)
+	} else if err != nil {
+		panic(err)
+	}
 }
