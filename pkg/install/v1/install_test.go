@@ -286,6 +286,7 @@ func init() {
 				URL:           configRepoUrl,
 				ReferenceName: plumbing.NewBranchReferenceName(configRepoBranch),
 			})
+			Expect(err).NotTo(HaveOccurred())
 
 			wt, err := r.Worktree()
 			Expect(err).NotTo(HaveOccurred())
