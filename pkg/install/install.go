@@ -28,7 +28,7 @@ func Install(kubeconfig string) error {
 	case "v1":
 		return installv1.Install(kubeconfig)
 	default:
-		return fmt.Errorf("Your current version of 23kectl is too old to install the requested version. Please update 23kectl and try again")
+		return fmt.Errorf("your current version of 23kectl is too old to install the requested version. Please update 23kectl and try again")
 	}
 }
 
@@ -119,6 +119,9 @@ func fetch23kectlyaml() (map[string]string, error) {
 
 	yaml23kectl := make(map[string]string)
 	err = yaml.Unmarshal(content, yaml23kectl)
+	if err != nil {
+		return nil, err
+	}
 
 	return yaml23kectl, nil
 }
