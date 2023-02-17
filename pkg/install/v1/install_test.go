@@ -197,12 +197,12 @@ func init() {
                     region: %s
                     bucketName: %s
                     credentials:
-                      storageAccount: %s
-                      storageAccountAccessKey: %s
-                      clientID: %s
-                      clientSecret: %s
-                      subscriptionID: %s
-                      tenantID: %s
+                      storageaccount: %s
+                      storageaccountaccesskey: %s
+                      clientid: %s
+                      clientsecret: %s
+                      subscriptionid: %s
+                      tenantid: %s
                         `,
 				testConfig["clusteridentity"],
 				testConfig["dashboard.clientsecret"],
