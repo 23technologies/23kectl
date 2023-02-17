@@ -9,4 +9,4 @@ stringData:
     global:
       deployment:
         virtualGarden:
-          clusterIP: 10.0.0.1
+          clusterIP: 10.0.0.100

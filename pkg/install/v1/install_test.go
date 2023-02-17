@@ -59,7 +59,7 @@ func init() {
 		},
 
 		"emailaddress":                    "test@example.org",
-		"gardener.clusterip":              "10.0.0.1",
+		"gardener.clusterip":              "10.0.0.100",
 		"gardenlet.seednodecidr":          "10.250.0.0/16",
 		"gardenlet.seedpodcidr":           "100.73.0.0/16",
 		"gardenlet.seedservicecidr":       "100.88.0.0/13",
