@@ -316,3 +316,115 @@ func (d *dnsCredentialsAWS53) parseCredentials() error {
 	}
 	return nil
 }
+
+func queryBackupConfig() (*backupConfiguration, error) {
+	var err error
+	var region, provider, bucketName, configureBackups string
+	var enabled bool
+	var prompt survey.Prompt
+
+	prompt = &survey.Select{
+		Message: `Please tell me whether you want to configure the backup functionality.`,
+		Options: []string{"yes", "no"},
+	}
+
+	err = survey.AskOne(prompt, &configureBackups, common.WithValidator("required"))
+	if configureBackups == "yes" {
+		enabled = true
+	} else {
+		enabled = false
+	}
+	common.ExitOnCtrlC(err)
+	if err != nil {
+		return nil, err
+	}
+	if !enabled {
+		return &backupConfiguration{
+			Enabled: false,
+		}, nil
+	}
+
+	prompt = &survey.Select{
+		Message: "Define your backup provider",
+		Options: []string{"azure"},
+	}
+	err = survey.AskOne(prompt, &provider, common.WithValidator("required"))
+	common.ExitOnCtrlC(err)
+	if err != nil {
+		return nil, err
+	}
+
+	prompt = &survey.Input{Message: `Define the region in which your backup bucket is hosted.`}
+	err = survey.AskOne(prompt, &region, common.WithValidator("required"))
+	common.ExitOnCtrlC(err)
+	if err != nil {
+		return nil, err
+	}
+	if !enabled {
+		return nil, nil
+	}
+
+	prompt = &survey.Input{Message: `Define the name for the backup bucket.`}
+	err = survey.AskOne(prompt, &bucketName, common.WithValidator("required"))
+	common.ExitOnCtrlC(err)
+	if err != nil {
+		return nil, err
+	}
+	if !enabled {
+		return nil, nil
+	}
+
+	backupConfig, _ := createBackupConfiguration(provider)
+	backupConfig.Region = region
+	backupConfig.BucketName = bucketName
+	return &backupConfig, nil
+}
+
+func (d *backupCredentialsAzure) parseCredentials() error {
+	qs := []*survey.Question{
+		{
+			Name:      "TenantId",
+			Prompt:    &survey.Input{Message: "Azure tenant ID? (plain or base64)"},
+			Validate:  common.MakeValidatorFn("required"),
+			Transform: survey.TransformString(common.CoerceBase64String),
+		},
+		{
+			Name:      "SubscriptionId",
+			Prompt:    &survey.Input{Message: "Azure subscription ID? (plain or base64)"},
+			Validate:  common.MakeValidatorFn("required"),
+			Transform: survey.TransformString(common.CoerceBase64String),
+		},
+		{
+			Name:      "ClientID",
+			Prompt:    &survey.Input{Message: "Azure client ID? (plain or base64)"},
+			Validate:  common.MakeValidatorFn("required"),
+			Transform: survey.TransformString(common.CoerceBase64String),
+		},
+		{
+			Name:      "ClientSecret",
+			Prompt:    &survey.Input{Message: "Azure client secret? (plain or base64)"},
+			Validate:  common.MakeValidatorFn("required"),
+			Transform: survey.TransformString(common.CoerceBase64String),
+		},
+		{
+			Name:      "StorageAccount",
+			Prompt:    &survey.Input{Message: "Azure storage account? (plain or base64)"},
+			Validate:  common.MakeValidatorFn("required"),
+			Transform: survey.TransformString(common.CoerceBase64String),
+		},
+		{
+			Name:      "StorageAccountAccessKey",
+			Prompt:    &survey.Input{Message: "Azure storage account accesskey? (plain or base64)"},
+			Validate:  common.MakeValidatorFn("required"),
+			Transform: survey.TransformString(common.CoerceBase64String),
+		},
+	}
+
+	err := survey.Ask(qs, d)
+	common.ExitOnCtrlC(err)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}

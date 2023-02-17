@@ -64,6 +64,14 @@ func create23keConfigSecret(kubeClient client.WithWatch) error {
 		return domainConfig, nil
 	})
 
+	Container.QueryConfigKey("backupConfig", func() (any, error) {
+		backupConfig, err := queryBackupConfig()
+		if err != nil {
+			return nil, err
+		}
+		return backupConfig, nil
+	})
+
 	fmt.Println("Creating '23ke-config' secret")
 
 	tpl, err := makeTemplate().Parse(`
@@ -87,6 +95,8 @@ stringData:
     domains:
       global: # means used for ingress, gardener defaultDomain and internalDomain
         {{- nindent 8 (toYaml .DomainConfig) }}
+    backups:
+        {{- nindent 6 (toYaml .BackupConfig) }}
 `)
 
 	if err != nil {
