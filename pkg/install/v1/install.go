@@ -67,7 +67,7 @@ func Install(kubeconfig string, isDryRun bool) error {
 
 		gitRepoUrl := viper.GetString("admin.gitrepourl")
 		if !strings.Contains(gitRepoUrl, "file://") {
-			return fmt.Errorf("Dry run mode only supports local git repositories")
+			return fmt.Errorf("dry run mode only supports local git repositories")
 		}
 		gitRepoPath := strings.SplitAfter(gitRepoUrl, "//")[1]
 		_, err = git.PlainInit(gitRepoPath, true)

@@ -3,7 +3,6 @@ package install
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path"
 
@@ -78,7 +77,7 @@ func createFluxManifest() (*manifestgen.Manifest, error) {
 // applyDryRun ...
 func applyDryRun(ctx context.Context, rcg genericclioptions.RESTClientGetter, opts *runclient.Options, root, manifestPath string) (string, error) {
 
-	out, err := ioutil.ReadFile(manifestPath)
+	out, err := os.ReadFile(manifestPath)
 	if err != nil {
 		return "", err
 	}
