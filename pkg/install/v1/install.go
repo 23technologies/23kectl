@@ -1,13 +1,18 @@
 package install
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
-	"github.com/fluxcd/flux2/pkg/manifestgen"
-	"github.com/go-git/go-git/v5/plumbing/transport/ssh"
 	"net"
 	"net/url"
 	"strings"
+
+	"github.com/fluxcd/flux2/pkg/manifestgen"
+	runclient "github.com/fluxcd/pkg/runtime/client"
+	"github.com/go-git/go-git/v5"
+	"github.com/go-git/go-git/v5/plumbing/transport/ssh"
 
 	"github.com/23technologies/23kectl/pkg/common"
 	"github.com/23technologies/23kectl/pkg/logger"
@@ -19,7 +24,11 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	utils "github.com/23technologies/23kectl/pkg/fluxutils"
+	"github.com/itchyny/json2yaml"
 )
 
 var Container = struct {
@@ -27,14 +36,17 @@ var Container = struct {
 	GetSSHHostname       func(_ *url.URL) string
 	QueryConfigKey       func(configKey string, _ func() (any, error)) error
 	CreateFluxManifest   func() (*manifestgen.Manifest, error)
+	Apply                func(ctx context.Context, rcg genericclioptions.RESTClientGetter, opts *runclient.Options, root, manifestPath string) (string, error)
+	Create               func(ctx context.Context, obj client.Object, opts ...client.CreateOption) error
 }{
 	BlockUntilKeyCanRead: blockUntilKeyCanRead,
-	QueryConfigKey:       common.QueryConfigKey,
 	GetSSHHostname:       getSSHHostname,
+	QueryConfigKey:       common.QueryConfigKey,
 	CreateFluxManifest:   createFluxManifest,
+	Apply:                utils.Apply,
 }
 
-func Install(kubeconfig string) error {
+func Install(kubeconfig string, isDryRun bool) error {
 	log := logger.Get("Install")
 
 	keConfiguration := &KeConfig{}
@@ -44,6 +56,24 @@ func Install(kubeconfig string) error {
 	kubeconfigArgs, kubeclientOptions, kubeClient, err := common.CreateKubeClient(kubeconfig)
 	if err != nil {
 		return err
+	}
+
+	Container.Create = kubeClient.Create
+	if isDryRun {
+		Container.Apply = applyDryRun
+		Container.Create = create
+		Container.GetSSHHostname = func(_ *url.URL) string { return "github.com" }
+		Container.BlockUntilKeyCanRead = func(_ string, _ *ssh.PublicKeys, _ string) {}
+
+		gitRepoUrl := viper.GetString("admin.gitrepourl")
+		if !strings.Contains(gitRepoUrl, "file://") {
+			return fmt.Errorf("Dry run mode only supports local git repositories")
+		}
+		gitRepoPath := strings.SplitAfter(gitRepoUrl, "//")[1]
+		_, err = git.PlainInit(gitRepoPath, true)
+		if err != nil {
+			return err
+			}
 	}
 
 	fmt.Println("Installing flux")
@@ -143,7 +173,7 @@ func Install(kubeconfig string) error {
 	return nil
 }
 
-func completeKeConfig(kubeClient client.WithWatch) error {
+func completeKeConfig(kubeClient client.Client) error {
 	viper.SetDefault("dashboard.sessionSecret", common.RandHex(20))
 	viper.SetDefault("dashboard.clientSecret", common.RandHex(20))
 	viper.SetDefault("kubeApiServer.basicAuthPassword", common.RandHex(20))
@@ -206,7 +236,7 @@ func completeKeConfig(kubeClient client.WithWatch) error {
 				ClusterIP: "1.1.1.1",
 			},
 		}
-		dummyErr := kubeClient.Create(context.Background(), dummySvc)
+		dummyErr := Container.Create(context.Background(), dummySvc)
 		viper.Set("gardenlet.seedServiceCidr", strings.SplitAfter(dummyErr.Error(), "The range of valid IPs is ")[1])
 	}
 
@@ -261,5 +291,20 @@ func UnmarshalKeConfig(config *KeConfig) error {
 		}
 		config.DomainConfig.Credentials = creds
 	}
+	return nil
+}
+
+// create ...
+func create(ctx context.Context, obj client.Object, opts ...client.CreateOption) error {
+
+	tmp, err := json.Marshal(obj)
+	jsonReader := bytes.NewReader(tmp)
+	yamlWriter := strings.Builder{}
+	json2yaml.Convert(&yamlWriter, jsonReader)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println("---")
+	fmt.Println(yamlWriter.String())
 	return nil
 }

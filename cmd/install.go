@@ -48,7 +48,12 @@ Dependent on your relationship with 23T you will be charged for using 23KE.
 			return err
 		}
 
-		install.Install(kubeConfig)
+		isDryRun, err := cmd.Flags().GetBool("dry-run")
+		if err != nil {
+			return err
+		}
+
+		err = install.Install(kubeConfig, isDryRun)
 
 		if err != nil {
 			logger.Get().Error(err, "An unexpected error occurred.")
@@ -80,5 +85,5 @@ func init() {
 
 	// Cobra supports local flags which will only run when this command
 	// is called directly, e.g.:
-	// installCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+	installCmd.Flags().Bool("dry-run", false, "Don't apply anything, just output")
 }
