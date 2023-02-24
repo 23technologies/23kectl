@@ -5,6 +5,7 @@ package cmd
 
 import (
 	"fmt"
+	"io/fs"
 	"os"
 
 	"github.com/23technologies/23kectl/pkg/common"
@@ -12,6 +13,8 @@ import (
 	"github.com/23technologies/23kectl/pkg/logger"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+
+	"github.com/pkg/errors"
 )
 
 // installCmd represents the install command
@@ -39,7 +42,8 @@ Dependent on your relationship with 23T you will be charged for using 23KE.
 	RunE: func(cmd *cobra.Command, args []string) error {
 		// todo check required flags
 		err := viper.ReadInConfig()
-		if err != nil {
+		if (err != nil && !errors.Is(err, fs.ErrNotExist)) {
+			fmt.Print(err)
 			return err
 		}
 
