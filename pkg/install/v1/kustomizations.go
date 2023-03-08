@@ -97,7 +97,7 @@ func createAddonsKs(kubeClient client.WithWatch) error {
 			Interval: metav1.Duration{
 				Duration: time.Minute,
 			},
-			Path:  "./base-addons",
+			Path:  "./pre-gardener/addons",
 			Prune: false,
 			SourceRef: kustomizecontrollerv1beta2.CrossNamespaceSourceReference{
 				Kind: "Bucket",
