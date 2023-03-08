@@ -48,7 +48,7 @@ Dependent on your relationship with 23T you will be charged for using 23KE.
 			return err
 		}
 
-		install.Install(kubeConfig)
+		err = install.Install(kubeConfig)
 
 		if err != nil {
 			logger.Get().Error(err, "An unexpected error occurred.")
