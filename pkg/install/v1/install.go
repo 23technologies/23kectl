@@ -106,11 +106,6 @@ func Install(kubeconfig string) error {
 		return err
 	}
 
-	err = createAddonsKs(kubeClient)
-	if err != nil {
-		return err
-	}
-
 	err = createKustomizations(kubeClient)
 	if err != nil {
 		return err

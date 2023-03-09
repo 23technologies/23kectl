@@ -25,4 +25,4 @@ stringData:
             excessCapacityReservation:
               enabled: false
             verticalPodAutoscaler:
-              enabled: false 
+              enabled: true 
