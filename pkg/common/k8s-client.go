@@ -7,7 +7,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func CreateKubeClient(kubeconfig string) (*genericclioptions.ConfigFlags, *runclient.Options, client.WithWatch, error) {
+func CreateKubeClient(kubeconfig string) (*genericclioptions.ConfigFlags, *runclient.Options, client.Client, error) {
 	var kubeconfigArgs = genericclioptions.NewConfigFlags(false)
 	kubeconfigArgs.KubeConfig = &kubeconfig
 

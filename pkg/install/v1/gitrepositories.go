@@ -23,7 +23,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func create23keBucket(kubeClient client.WithWatch) error {
+func create23keBucket(kubeClient client.Client) error {
 
 	log := logger.Get("create23kebucket")
 	var err error
@@ -50,14 +50,14 @@ func create23keBucket(kubeClient client.WithWatch) error {
 		},
 	}
 
-	err = kubeClient.Create(context.TODO(), &bucket23ke, &client.CreateOptions{})
+	err = Container.Create(context.TODO(), &bucket23ke, &client.CreateOptions{})
 	if err != nil {
 		log.Info("Couldn't create bucket source "+common.BUCKET_NAME, "error", err)
 	}
 	return nil
 }
 
-func createGitRepositories(kubeClient client.WithWatch) error {
+func createGitRepositories(kubeClient client.Client) error {
 	log := logger.Get("createGitRepositories")
 	var err error
 
@@ -82,7 +82,7 @@ func createGitRepositories(kubeClient client.WithWatch) error {
 		Status: sourcecontrollerv1beta2.GitRepositoryStatus{},
 	}
 
-	err = kubeClient.Create(context.TODO(), &gitrepo23keconfig, &client.CreateOptions{})
+	err = Container.Create(context.TODO(), &gitrepo23keconfig, &client.CreateOptions{})
 	if err != nil {
 		// todo: is this really an error we want to swallow?
 		log.Info("Couldn't create git source "+common.CONFIG_23KE_GITREPO_NAME, "error", err)

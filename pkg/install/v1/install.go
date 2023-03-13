@@ -1,25 +1,28 @@
 package install
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
-	"github.com/fluxcd/flux2/pkg/manifestgen"
-	"github.com/go-git/go-git/v5/plumbing/transport/ssh"
-	"net"
 	"net/url"
 	"strings"
 
+	"github.com/fluxcd/flux2/pkg/manifestgen"
+	runclient "github.com/fluxcd/pkg/runtime/client"
+	"github.com/go-git/go-git/v5"
+	"github.com/go-git/go-git/v5/plumbing/transport/ssh"
+
 	"github.com/23technologies/23kectl/pkg/common"
 	"github.com/23technologies/23kectl/pkg/logger"
-	"github.com/AlecAivazis/survey/v2"
 	"github.com/fatih/color"
 	"github.com/mitchellh/mapstructure"
 	"github.com/spf13/viper"
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	utils "github.com/23technologies/23kectl/pkg/fluxutils"
+	"github.com/itchyny/json2yaml"
 )
 
 var Container = struct {
@@ -27,14 +30,17 @@ var Container = struct {
 	GetSSHHostname       func(_ *url.URL) string
 	QueryConfigKey       func(configKey string, _ func() (any, error)) error
 	CreateFluxManifest   func() (*manifestgen.Manifest, error)
+	Apply                func(ctx context.Context, rcg genericclioptions.RESTClientGetter, opts *runclient.Options, root, manifestPath string) (string, error)
+	Create               func(ctx context.Context, obj client.Object, opts ...client.CreateOption) error
 }{
 	BlockUntilKeyCanRead: blockUntilKeyCanRead,
-	QueryConfigKey:       common.QueryConfigKey,
 	GetSSHHostname:       getSSHHostname,
+	QueryConfigKey:       common.QueryConfigKey,
 	CreateFluxManifest:   createFluxManifest,
+	Apply:                utils.Apply,
 }
 
-func Install(kubeconfig string) error {
+func Install(kubeconfig string, isDryRun bool) error {
 	log := logger.Get("Install")
 
 	keConfiguration := &KeConfig{}
@@ -45,6 +51,33 @@ func Install(kubeconfig string) error {
 	if err != nil {
 		return err
 	}
+	Container.Create = kubeClient.Create
+
+	err = queryConfig(kubeClient)
+	if err != nil {
+		return err
+	}
+	UnmarshalKeConfig(keConfiguration)
+
+	// initialize container
+	// This is espcially important when running in dry run mode
+	if isDryRun {
+		Container.Apply = applyDryRun
+		Container.Create = create
+		Container.GetSSHHostname = func(_ *url.URL) string { return "github.com" }
+		Container.BlockUntilKeyCanRead = func(_ string, _ *ssh.PublicKeys, _ string) {}
+
+		gitRepoUrl := viper.GetString("admin.gitrepourl")
+		if !strings.Contains(gitRepoUrl, "file://") {
+			return fmt.Errorf("dry run mode only supports local git repositories. I have written a config file for you. If you just wanted to craft an inital config file, you can ignore this error")
+		}
+		gitRepoPath := strings.SplitAfter(gitRepoUrl, "//")[1]
+		_, err = git.PlainInit(gitRepoPath, true)
+		if err != nil {
+			return err
+			}
+	}
+
 
 	fmt.Println("Installing flux")
 	err = installFlux(kubeconfigArgs, kubeclientOptions)
@@ -54,31 +87,6 @@ func Install(kubeconfig string) error {
 	}
 
 	err = createBucketSecret(kubeClient)
-	if err != nil {
-		return err
-	}
-
-	err = completeKeConfig(kubeClient)
-	if err != nil {
-		return err
-	}
-
-	err = UnmarshalKeConfig(keConfiguration)
-	if err != nil {
-		return err
-	}
-
-	err = viper.WriteConfig()
-	if err != nil {
-		log.Info("Viper couldn't write config file", "error", err)
-	}
-
-	err = queryAdminConfig()
-	if err != nil {
-		return err
-	}
-
-	err = queryBaseClusterConfig()
 	if err != nil {
 		return err
 	}
@@ -116,18 +124,6 @@ func Install(kubeconfig string) error {
 		return err
 	}
 
-	// enable the provider extensions needed for a minimal setup
-	viper.Set("extensionsConfig.provider-"+viper.GetString("baseCluster.provider")+".enabled", true)
-	viper.Set("extensionsConfig."+common.DNS_PROVIDER_TO_PROVIDER[viper.GetString("domainConfig.provider")]+".enabled", true)
-	err = viper.WriteConfig()
-	if err != nil {
-		return err
-	}
-	err = viper.Unmarshal(keConfiguration)
-	if err != nil {
-		return err
-	}
-
 	err = updateConfigRepo(publicKeysConfig)
 	if err != nil {
 		return err
@@ -143,88 +139,6 @@ func Install(kubeconfig string) error {
 	return nil
 }
 
-func completeKeConfig(kubeClient client.WithWatch) error {
-	viper.SetDefault("dashboard.sessionSecret", common.RandHex(20))
-	viper.SetDefault("dashboard.clientSecret", common.RandHex(20))
-	viper.SetDefault("kubeApiServer.basicAuthPassword", common.RandHex(20))
-	viper.SetDefault("clusterIdentity", "garden-cluster-"+common.RandHex(5)+"-identity")
-
-	Container.QueryConfigKey("gardenlet.seedPodCidr", func() (any, error) {
-		// If either calico or cilium are used as CNI we can pull the needed info from the cluster
-		// Otherwise prompt the user
-
-		// CALICO
-		// If calico's installed there's an ippool with name "default-ipv4-ippool".
-		ipPool := unstructured.Unstructured{}
-		gvk := schema.GroupVersionKind{
-			Group:   "crd.projectcalico.org",
-			Version: "v1",
-			Kind:    "ippool",
-		}
-		ipPool.SetGroupVersionKind(gvk)
-		err := kubeClient.Get(context.Background(), client.ObjectKey{
-			Namespace: "",
-			Name:      "default-ipv4-ippool",
-		}, &ipPool)
-		if err == nil {
-			return ipPool.Object["spec"].(map[string]interface{})["cidr"].(string), nil
-		}
-
-		// CILIUM
-		// cilium uses a configmap "cilium-config" in the kube-system namespace
-		ciliumConfig := corev1.ConfigMap{}
-		err = kubeClient.Get(context.Background(), client.ObjectKey{
-			Namespace: "kube-system",
-			Name:      "cilium-config",
-		}, &ciliumConfig)
-		if err == nil {
-			return ciliumConfig.Data["cluster-pool-ipv4-cidr"], nil
-		}
-
-		// UNKNOWN
-		// let's prompt for the Pod CIDR
-		prompt := &survey.Input{
-			Message: "Please enter the pod CIDR of your base cluster in the form: x.x.x.x/y",
-		}
-		var queryResult string
-		err = survey.AskOne(prompt, &queryResult, common.WithValidator("required,cidr"))
-		common.ExitOnCtrlC(err)
-		if err != nil {
-			return nil, err
-		}
-		return queryResult, nil
-	})
-
-	if !viper.IsSet("gardenlet.seedServiceCidr") {
-		dummySvc := &corev1.Service{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "dummy",
-				Namespace: "default",
-			},
-			Spec: corev1.ServiceSpec{
-				Ports:     []corev1.ServicePort{{Name: "port", Port: 443}},
-				ClusterIP: "1.1.1.1",
-			},
-		}
-		dummyErr := kubeClient.Create(context.Background(), dummySvc)
-		viper.Set("gardenlet.seedServiceCidr", strings.SplitAfter(dummyErr.Error(), "The range of valid IPs is ")[1])
-	}
-
-	if !viper.IsSet("gardener.clusterIP") {
-		seedServiceCidr := viper.GetString("gardenlet.seedServiceCidr")
-		clusterIp, ipnet, _ := net.ParseCIDR(seedServiceCidr)
-
-		// clusterIp[len(clusterIp)-2] += 1
-		clusterIp[len(clusterIp)-1] += 100
-
-		if !ipnet.Contains(clusterIp) {
-			panic(fmt.Sprintf("Your cluster ip (%s) is out of the service IP range: %s", clusterIp, ipnet.String()))
-		}
-		viper.Set("gardener.clusterIP", clusterIp.String())
-	}
-
-	return nil
-}
 
 func getKeConfig() (*KeConfig, error) {
 	keConfig := new(KeConfig)
@@ -238,7 +152,6 @@ func getKeConfig() (*KeConfig, error) {
 
 // unmarshalKeConfig ...
 func UnmarshalKeConfig(config *KeConfig) error {
-
 	err := viper.Unmarshal(config)
 	if err != nil {
 		return err
@@ -261,5 +174,21 @@ func UnmarshalKeConfig(config *KeConfig) error {
 		}
 		config.DomainConfig.Credentials = creds
 	}
+	return nil
+}
+
+// create ...
+// implements a dry run create function. It only outputs the objects
+// which would be created in the cluster
+func create(ctx context.Context, obj client.Object, opts ...client.CreateOption) error {
+	tmp, err := json.Marshal(obj)
+	jsonReader := bytes.NewReader(tmp)
+	yamlWriter := strings.Builder{}
+	json2yaml.Convert(&yamlWriter, jsonReader)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println("---")
+	fmt.Println(yamlWriter.String())
 	return nil
 }

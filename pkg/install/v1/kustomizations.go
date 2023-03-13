@@ -13,7 +13,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func createKustomizations(kubeClient client.WithWatch) error {
+func createKustomizations(kubeClient client.Client) error {
 	var err error
 	log := logger.Get("createKustomizations")
 
@@ -40,7 +40,7 @@ func createKustomizations(kubeClient client.WithWatch) error {
 		Status: kustomizecontrollerv1beta2.KustomizationStatus{},
 	}
 
-	err = kubeClient.Create(context.TODO(), &ks23keBase, &client.CreateOptions{})
+	err = Container.Create(context.TODO(), &ks23keBase, &client.CreateOptions{})
 	if err != nil {
 		log.Info("Couldn't create ks "+common.BASE_23KE_KS_NAME, "error", err)
 	}
@@ -68,7 +68,7 @@ func createKustomizations(kubeClient client.WithWatch) error {
 		Status: kustomizecontrollerv1beta2.KustomizationStatus{},
 	}
 
-	err = kubeClient.Create(context.TODO(), &ks23keConfig, &client.CreateOptions{})
+	err = Container.Create(context.TODO(), &ks23keConfig, &client.CreateOptions{})
 	if err != nil {
 		log.Info("Couldn't create ks "+common.CONFIG_KS_NAME, "error", err)
 	}
@@ -76,7 +76,7 @@ func createKustomizations(kubeClient client.WithWatch) error {
 	return nil
 }
 
-func createAddonsKs(kubeClient client.WithWatch) error {
+func createAddonsKs(kubeClient client.Client) error {
 	log := logger.Get("createAddonsKs")
 
 	if viper.GetBool("baseCluster.hasVerticalPodAutoscaler") {
@@ -107,7 +107,7 @@ func createAddonsKs(kubeClient client.WithWatch) error {
 		Status: kustomizecontrollerv1beta2.KustomizationStatus{},
 	}
 
-	err := kubeClient.Create(context.TODO(), &addonsKs, &client.CreateOptions{})
+	err := Container.Create(context.TODO(), &addonsKs, &client.CreateOptions{})
 	if err != nil {
 		log.Info("Couldn't create ks "+common.BASE_ADDONS_23KE_KS_NAME, "error", err)
 	}

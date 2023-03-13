@@ -1,12 +1,143 @@
 package install
 
 import (
-	"github.com/23technologies/23kectl/pkg/common"
+	"context"
+	"fmt"
+	"net"
+	"strings"
 
+	"github.com/23technologies/23kectl/pkg/common"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+
+	"github.com/23technologies/23kectl/pkg/logger"
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/spf13/viper"
 	"golang.org/x/crypto/bcrypt"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
+
+func queryConfig(kubeClient client.Client) error {
+
+	log := logger.Get("queryConfig")
+
+	err := completeKeConfig(kubeClient)
+	if err != nil {
+		return err
+	}
+
+	err = viper.WriteConfig()
+	if err != nil {
+		log.Info("Viper couldn't write config file", "error", err)
+	}
+
+	err = queryAdminConfig()
+	if err != nil {
+		return err
+	}
+
+	err = queryBaseClusterConfig()
+	if err != nil {
+		return err
+	}
+
+	// enable the provider extensions needed for a minimal setup
+	viper.Set("extensionsConfig.provider-"+viper.GetString("baseCluster.provider")+".enabled", true)
+	viper.Set("extensionsConfig."+common.DNS_PROVIDER_TO_PROVIDER[viper.GetString("domainConfig.provider")]+".enabled", true)
+	err = viper.WriteConfig()
+	if err != nil {
+		return err
+	}
+
+
+	return nil
+
+}
+
+func completeKeConfig(kubeClient client.Client) error {
+	viper.SetDefault("dashboard.sessionSecret", common.RandHex(20))
+	viper.SetDefault("dashboard.clientSecret", common.RandHex(20))
+	viper.SetDefault("kubeApiServer.basicAuthPassword", common.RandHex(20))
+	viper.SetDefault("clusterIdentity", "garden-cluster-"+common.RandHex(5)+"-identity")
+
+	Container.QueryConfigKey("gardenlet.seedPodCidr", func() (any, error) {
+		// If either calico or cilium are used as CNI we can pull the needed info from the cluster
+		// Otherwise prompt the user
+
+		// CALICO
+		// If calico's installed there's an ippool with name "default-ipv4-ippool".
+		ipPool := unstructured.Unstructured{}
+		gvk := schema.GroupVersionKind{
+			Group:   "crd.projectcalico.org",
+			Version: "v1",
+			Kind:    "ippool",
+		}
+		ipPool.SetGroupVersionKind(gvk)
+		err := kubeClient.Get(context.Background(), client.ObjectKey{
+			Namespace: "",
+			Name:      "default-ipv4-ippool",
+		}, &ipPool)
+		if err == nil {
+			return ipPool.Object["spec"].(map[string]interface{})["cidr"].(string), nil
+		}
+
+		// CILIUM
+		// cilium uses a configmap "cilium-config" in the kube-system namespace
+		ciliumConfig := corev1.ConfigMap{}
+		err = kubeClient.Get(context.Background(), client.ObjectKey{
+			Namespace: "kube-system",
+			Name:      "cilium-config",
+		}, &ciliumConfig)
+		if err == nil {
+			return ciliumConfig.Data["cluster-pool-ipv4-cidr"], nil
+		}
+
+		// UNKNOWN
+		// let's prompt for the Pod CIDR
+		prompt := &survey.Input{
+			Message: "Please enter the pod CIDR of your base cluster in the form: x.x.x.x/y",
+		}
+		var queryResult string
+		err = survey.AskOne(prompt, &queryResult, common.WithValidator("required,cidr"))
+		common.ExitOnCtrlC(err)
+		if err != nil {
+			return nil, err
+		}
+		return queryResult, nil
+	})
+
+	if !viper.IsSet("gardenlet.seedServiceCidr") {
+		dummySvc := &corev1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "dummy",
+				Namespace: "default",
+			},
+			Spec: corev1.ServiceSpec{
+				Ports:     []corev1.ServicePort{{Name: "port", Port: 443}},
+				ClusterIP: "1.1.1.1",
+			},
+		}
+		dummyErr := Container.Create(context.Background(), dummySvc)
+		viper.Set("gardenlet.seedServiceCidr", strings.SplitAfter(dummyErr.Error(), "The range of valid IPs is ")[1])
+	}
+
+	if !viper.IsSet("gardener.clusterIP") {
+		seedServiceCidr := viper.GetString("gardenlet.seedServiceCidr")
+		clusterIp, ipnet, _ := net.ParseCIDR(seedServiceCidr)
+
+		// clusterIp[len(clusterIp)-2] += 1
+		clusterIp[len(clusterIp)-1] += 100
+
+		if !ipnet.Contains(clusterIp) {
+			panic(fmt.Sprintf("Your cluster ip (%s) is out of the service IP range: %s", clusterIp, ipnet.String()))
+		}
+		viper.Set("gardener.clusterIP", clusterIp.String())
+	}
+
+	return nil
+}
 
 // queryAdminConfig ...
 func queryAdminConfig() error {
@@ -82,6 +213,29 @@ You can store configuration files for multiple gardeners (e.g. prod, staging, de
 			return nil, err
 		}
 		return queryResult, nil
+	})
+
+	Container.QueryConfigKey("issuer.acme.email", func() (any, error) {
+		prompt := &survey.Input{
+			Message: "Please enter your email address for acme certificate generation",
+			Default: viper.GetString("admin.email"),
+		}
+		var queryResult string
+		err := survey.AskOne(prompt, &queryResult, common.WithValidator("required,email"))
+		common.ExitOnCtrlC(err)
+		if err != nil {
+			return nil, err
+		}
+
+		return queryResult, nil
+	})
+
+	Container.QueryConfigKey("domainConfig", func() (any, error) {
+		domainConfig, err := queryDomainConfig()
+		if err != nil {
+			return nil, err
+		}
+		return domainConfig, nil
 	})
 
 	return nil

@@ -2,11 +2,11 @@ package install
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path"
 
 	"github.com/23technologies/23kectl/pkg/common"
-	utils "github.com/23technologies/23kectl/pkg/fluxutils"
 	"github.com/fluxcd/flux2/pkg/manifestgen"
 	runclient "github.com/fluxcd/pkg/runtime/client"
 	"github.com/minio/minio-go/v7"
@@ -36,7 +36,7 @@ func installFlux(kubeconfigArgs *genericclioptions.ConfigFlags, kubeclientOption
 		return err
 	}
 
-	_, err = utils.Apply(context.Background(), kubeconfigArgs, kubeclientOptions, tmpDir, path.Join(tmpDir, manifest.Path))
+	_, err = Container.Apply(context.Background(), kubeconfigArgs, kubeclientOptions, tmpDir, path.Join(tmpDir, manifest.Path))
 	if err != nil {
 		return err
 	}
@@ -72,4 +72,18 @@ func createFluxManifest() (*manifestgen.Manifest, error) {
 	manifest.Content = string(content)
 
 	return &manifest, nil
+}
+
+// applyDryRun ...
+func applyDryRun(ctx context.Context, rcg genericclioptions.RESTClientGetter, opts *runclient.Options, root, manifestPath string) (string, error) {
+
+	out, err := os.ReadFile(manifestPath)
+	if err != nil {
+		return "", err
+	}
+
+	fmt.Println(string(out))
+
+	return "", err
+
 }

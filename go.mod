@@ -23,6 +23,7 @@ require (
 	github.com/go-logr/logr v1.2.3
 	github.com/go-playground/validator/v10 v10.11.1
 	github.com/google/go-github/v36 v36.0.0
+	github.com/itchyny/json2yaml v0.1.4
 	github.com/minio/minio-go/v7 v7.0.45
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/onsi/ginkgo/v2 v2.7.0

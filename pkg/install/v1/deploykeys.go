@@ -25,7 +25,7 @@ import (
 	gh "github.com/google/go-github/v36/github"
 )
 
-func generateDeployKey(kubeClient client.WithWatch, secretName string, repoUrl string) (*ssh.PublicKeys, error) {
+func generateDeployKey(kubeClient client.Client, secretName string, repoUrl string) (*ssh.PublicKeys, error) {
 	sec := corev1.Secret{}
 	err := kubeClient.Get(context.Background(), client.ObjectKey{
 		Namespace: common.FLUX_NAMESPACE,
@@ -75,17 +75,17 @@ func generateDeployKey(kubeClient client.WithWatch, secretName string, repoUrl s
 
 		fmt.Println(`I created an ssh key for you.`)
 
-		err = kubeClient.Create(context.Background(), &fluxRepoSecret)
+		keys, err = ssh.NewPublicKeys("git", []byte(fluxRepoSecret.StringData["identity"]), "")
 		if err != nil {
 			return nil, err
 		}
 
-		keys, err = ssh.NewPublicKeys("git", fluxRepoSecret.Data["identity"], "")
+		Container.BlockUntilKeyCanRead(repoUrl, keys, string(fluxRepoSecret.StringData["identity.pub"]))
+
+		err = Container.Create(context.Background(), &fluxRepoSecret)
 		if err != nil {
 			return nil, err
 		}
-
-		Container.BlockUntilKeyCanRead(repoUrl, keys, string(fluxRepoSecret.Data["identity.pub"]))
 
 		return keys, nil
 	}
