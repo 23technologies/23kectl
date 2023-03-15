@@ -119,7 +119,7 @@ func init() {
 				panic(err)
 			}
 
-			installErr = install.Install(testKubeConfig)
+			installErr = install.Install(testKubeConfig, false)
 		})
 
 		It("should install flux", func() {

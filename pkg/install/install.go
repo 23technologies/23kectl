@@ -13,7 +13,7 @@ import (
 	installv1 "github.com/23technologies/23kectl/pkg/install/v1"
 )
 
-func Install(kubeconfig string) error {
+func Install(kubeconfig string, isDryRun bool) error {
 
 	yaml23kectl, err := fetch23kectlyaml()
 	if err != nil {
@@ -24,9 +24,9 @@ func Install(kubeconfig string) error {
 
 	switch installPkgVersion {
 	case "v1-trial":
-		return installv1.Install(kubeconfig)
+		return installv1.Install(kubeconfig, isDryRun)
 	case "v1":
-		return installv1.Install(kubeconfig)
+		return installv1.Install(kubeconfig, isDryRun)
 	default:
 		return fmt.Errorf("your current version of 23kectl is too old to install the requested version. Please update 23kectl and try again")
 	}

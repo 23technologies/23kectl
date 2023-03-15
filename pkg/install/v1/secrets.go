@@ -6,7 +6,6 @@ import (
 	"fmt"
 
 	"github.com/23technologies/23kectl/pkg/common"
-	"github.com/AlecAivazis/survey/v2"
 	"github.com/spf13/viper"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -14,9 +13,13 @@ import (
 	k8syaml "sigs.k8s.io/yaml"
 )
 
-func createBucketSecret(kubeClient client.WithWatch) error {
+func createBucketSecret(kubeClient client.Client) error {
 
 	sec := corev1.Secret{
+		TypeMeta: v1.TypeMeta{
+			Kind:       "Secret",
+			APIVersion: "v1",
+		},
 		ObjectMeta: v1.ObjectMeta{
 			Name:      common.BUCKET_SECRET_NAME,
 			Namespace: common.FLUX_NAMESPACE,
@@ -28,7 +31,7 @@ func createBucketSecret(kubeClient client.WithWatch) error {
 		Type: "Opaque",
 	}
 
-	err := kubeClient.Create(context.Background(), &sec)
+	err := Container.Create(context.Background(), &sec)
 	if err != nil {
 		err = kubeClient.Update(context.Background(), &sec)
 		if err != nil {
@@ -40,30 +43,7 @@ func createBucketSecret(kubeClient client.WithWatch) error {
 
 }
 
-func create23keConfigSecret(kubeClient client.WithWatch) error {
-	Container.QueryConfigKey("issuer.acme.email", func() (any, error) {
-		prompt := &survey.Input{
-			Message: "Please enter your email address for acme certificate generation",
-			Default: viper.GetString("admin.email"),
-		}
-		var queryResult string
-		err := survey.AskOne(prompt, &queryResult, common.WithValidator("required,email"))
-		common.ExitOnCtrlC(err)
-		if err != nil {
-			return nil, err
-		}
-
-		return queryResult, nil
-	})
-
-	Container.QueryConfigKey("domainConfig", func() (any, error) {
-		domainConfig, err := queryDomainConfig()
-		if err != nil {
-			return nil, err
-		}
-		return domainConfig, nil
-	})
-
+func create23keConfigSecret(kubeClient client.Client) error {
 	fmt.Println("Creating '23ke-config' secret")
 
 	tpl, err := makeTemplate().Parse(`
@@ -111,7 +91,7 @@ stringData:
 		return err
 	}
 
-	err = kubeClient.Create(context.Background(), &_23keConfigSec)
+	err = Container.Create(context.Background(), &_23keConfigSec)
 	if err != nil {
 		err = kubeClient.Update(context.Background(), &_23keConfigSec)
 		if err != nil {
