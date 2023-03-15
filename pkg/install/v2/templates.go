@@ -77,7 +77,7 @@ func getFuncMap() template.FuncMap {
 		funcMap["boolPtrIsTrue"] = func(boolPtr *bool) bool {
 			// in templates pointers are considered true if they are not nil which is counter-intuitive for bool pointers
 			// https://github.com/golang/go/issues/12995
-			return *boolPtr == true
+			return *boolPtr
 		}
 	}
 
