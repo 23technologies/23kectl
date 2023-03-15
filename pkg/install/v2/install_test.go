@@ -3,7 +3,7 @@ package install_test
 import (
 	"context"
 	"fmt"
-	"github.com/23technologies/23kectl/pkg/install/v1"
+	"github.com/23technologies/23kectl/pkg/install/v2"
 	"github.com/fluxcd/flux2/pkg/manifestgen"
 	fluxInstall "github.com/fluxcd/flux2/pkg/manifestgen/install"
 	"github.com/go-git/go-git/v5"
@@ -37,7 +37,7 @@ func init() {
 		"admin.gitrepobranch":                  configRepoBranch,
 		"admin.gitrepourl":                     configRepoUrl,
 		"admin.password":                       "$2a$10$eWNJshWJxf24FVm4u7W1XOYiPzdSscmFgs3GVF.PYaC42DjuX1piu",
-		"basecluster.hasverticalpodautoscaler": "false",
+		"basecluster.hasverticalpodautoscaler": false,
 		"basecluster.nodecidr":                 "10.250.0.0/16",
 		"basecluster.provider":                 "hcloud",
 		"basecluster.region":                   "hel1",
@@ -221,26 +221,6 @@ func init() {
 			Expect(gitrepo.Spec.URL).To(BeEquivalentTo(testConfig["admin.gitrepourl"]))
 			Expect(gitrepo.Spec.Reference).To(BeEquivalentTo(sourcecontrollerv1beta2.GitRepositoryRef{Branch: testConfig["admin.gitrepobranch"].(string)}))
 
-			Expect(nil).To(BeNil())
-		})
-
-		It("should createAddonsKs", func() {
-			key := client.ObjectKey{
-				Namespace: "flux-system",
-				Name:      "23ke-base-addons",
-			}
-
-			ks := kustomizecontrollerv1beta2.Kustomization{}
-			err := k8sClient.Get(context.Background(), key, &ks)
-			Expect(err).To(BeNil())
-			Expect(ks.Name).To(BeEquivalentTo("23ke-base-addons"))
-			Expect(ks.Spec.Prune).To(BeFalse())
-			Expect(ks.Spec.Path).To(BeEquivalentTo("./base-addons"))
-			Expect(ks.Spec.SourceRef).To(BeEquivalentTo(
-				kustomizecontrollerv1beta2.CrossNamespaceSourceReference{
-					Kind: "Bucket",
-					Name: "23ke",
-				}))
 			Expect(nil).To(BeNil())
 		})
 

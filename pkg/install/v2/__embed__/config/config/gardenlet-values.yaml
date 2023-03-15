@@ -25,4 +25,4 @@ stringData:
             excessCapacityReservation:
               enabled: false
             verticalPodAutoscaler:
-              enabled: {{ not .BaseCluster.HasVerticalPodAutoscaler }} 
+              enabled: {{ .BaseCluster.HasVerticalPodAutoscaler | boolPtrIsTrue | not }} 

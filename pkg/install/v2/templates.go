@@ -1,6 +1,7 @@
 package install
 
 import (
+	"bytes"
 	"embed"
 	"fmt"
 	"io/fs"
@@ -72,6 +73,11 @@ func getFuncMap() template.FuncMap {
 				panic("Error during marshaling")
 			}
 			return string(result)
+		}
+		funcMap["boolPtrIsTrue"] = func(boolPtr *bool) bool {
+			// in templates pointers are considered true if they are not nil which is counter-intuitive for bool pointers
+			// https://github.com/golang/go/issues/12995
+			return *boolPtr == true
 		}
 	}
 
@@ -159,6 +165,8 @@ func writeConfigDir(filesystem billy.Filesystem, subFolder string) error {
 			return err
 		}
 
+		buf := &bytes.Buffer{}
+		_ = tpl.Execute(buf, keConfig)
 		err = tpl.Execute(file, keConfig)
 		file.Close()
 		if err != nil {
