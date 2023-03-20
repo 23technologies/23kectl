@@ -67,6 +67,8 @@ stringData:
     domains:
       global: # means used for ingress, gardener defaultDomain and internalDomain
         {{- nindent 8 (toYaml .DomainConfig) }}
+    backups:
+      {{- nindent 6 (toYaml .BackupConfig) }}
 `)
 
 	if err != nil {

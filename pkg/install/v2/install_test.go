@@ -58,6 +58,21 @@ func init() {
 			"provider": "azure-dns",
 		},
 
+		"backupconfig": map[string]any{
+			"enabled":    true,
+			"provider":   "azure",
+			"region":     "germanywestcentral",
+			"bucketname": "my-bucket-name",
+			"credentials": map[string]string{
+				"clientid":                "my-client-id",
+				"clientsecret":            "my-client-secret",
+				"subscriptionid":          "my-subscription-id",
+				"tenantid":                "my-tenantid",
+				"storageaccount":          "my-storage-account",
+				"storageaccountaccesskey": "my-storage-account-accesskyey",
+			},
+		},
+
 		"emailaddress":                    "test@example.org",
 		"gardener.clusterip":              "10.0.0.100",
 		"gardenlet.seednodecidr":          "10.250.0.0/16",
@@ -158,34 +173,62 @@ func init() {
 
 		It("should create23keConfigSecret", func(ctx SpecContext) {
 			expectedValues := fmt.Sprintf(`
-                clusterIdentity: %s
-                dashboard:
-                  clientSecret: %s
-                  sessionSecret: %s
-                domains:
-                  global:
-                    credentials:
-                      clientid: my-client-id
-                      clientsecret: my-client-secret
-                      subscriptionid: my-subscription-id
-                      tenantid: my-tenantid
-                    domain: my-domain.example.org
-                    provider: azure-dns
-                issuer:
-                  acme:
-                    email: test@example.org
-                kubeApiServer:
-                  basicAuthPassword: %s
-            `,
+clusterIdentity: %s
+dashboard:
+  clientSecret: %s
+  sessionSecret: %s
+domains:
+  global:
+    credentials:
+      clientid: %s
+      clientsecret: %s
+      subscriptionid: %s
+      tenantid: %s
+    domain: my-domain.example.org
+    provider: azure-dns
+issuer:
+  acme:
+    email: test@example.org
+kubeApiServer:
+  basicAuthPassword: %s
+backups:
+  enabled: %t
+  provider: %s
+  region: %s
+  bucketName: %s
+  credentials:
+    storageaccount: %s
+    storageaccountaccesskey: %s
+    clientid: %s
+    clientsecret: %s
+    subscriptionid: %s
+    tenantid: %s
+`,
 				testConfig["clusteridentity"],
 				testConfig["dashboard.clientsecret"],
 				testConfig["dashboard.sessionsecret"],
+				testConfig["domainconfig"].(map[string]any)["credentials"].(map[string]string)["clientid"],
+				testConfig["domainconfig"].(map[string]any)["credentials"].(map[string]string)["clientsecret"],
+				testConfig["domainconfig"].(map[string]any)["credentials"].(map[string]string)["subscriptionid"],
+				testConfig["domainconfig"].(map[string]any)["credentials"].(map[string]string)["tenantid"],
 				testConfig["kubeapiserver.basicauthpassword"],
+				testConfig["backupconfig"].(map[string]any)["enabled"].(bool),
+				testConfig["backupconfig"].(map[string]any)["provider"].(string),
+				testConfig["backupconfig"].(map[string]any)["region"].(string),
+				testConfig["backupconfig"].(map[string]any)["bucketname"].(string),
+				testConfig["backupconfig"].(map[string]any)["credentials"].(map[string]string)["storageaccount"],
+				testConfig["backupconfig"].(map[string]any)["credentials"].(map[string]string)["storageaccountaccesskey"],
+				testConfig["backupconfig"].(map[string]any)["credentials"].(map[string]string)["clientid"],
+				testConfig["backupconfig"].(map[string]any)["credentials"].(map[string]string)["clientsecret"],
+				testConfig["backupconfig"].(map[string]any)["credentials"].(map[string]string)["subscriptionid"],
+				testConfig["backupconfig"].(map[string]any)["credentials"].(map[string]string)["tenantid"],
 			)
 
 			key := client.ObjectKey{Namespace: "flux-system", Name: "23ke-config"}
 			secret := corev1.Secret{}
 			err := k8sClient.Get(ctx, key, &secret)
+
+			fmt.Println(expectedValues)
 
 			Expect(err).NotTo(HaveOccurred())
 			Expect(secret.Data["values.yaml"]).To(MatchYAML(expectedValues))

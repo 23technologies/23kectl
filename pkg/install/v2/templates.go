@@ -62,6 +62,24 @@ func createDomainConfiguration(domain string, dnsProvider string) (domainConfigu
 	return domainConfiguration{}, fmt.Errorf("input invalid for domain configuration")
 }
 
+func createBackupConfiguration(provider string) (backupConfiguration, error) {
+	switch provider {
+	case "azure":
+		return newBackupConfigAzure(), nil
+	}
+
+	return backupConfiguration{}, fmt.Errorf("input invalid for backup configuration")
+}
+
+func newBackupConfigAzure() backupConfiguration {
+	var credentials backupCredentialsAzure
+	credentials.parseCredentials()
+	return backupConfiguration{
+		Provider:    "azure",
+		Credentials: &credentials,
+	}
+}
+
 var funcMap template.FuncMap
 
 func getFuncMap() template.FuncMap {
