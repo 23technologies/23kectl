@@ -11,6 +11,7 @@ type KeConfig struct {
 	Dashboard        dashboardConfig     `yaml:"dashboard"`
 	Issuer           issuerConfig        `yaml:"issuer"`
 	DomainConfig     domainConfiguration `yaml:"domainConfig,omitempty"`
+	BackupConfig     backupConfiguration `yaml:"backupConfig,omitempty"`
 	ExtensionsConfig extensionsConfig    `yaml:"extensions"`
 }
 
@@ -81,6 +82,23 @@ type dnsCredentialsOSDesignate struct {
 type dnsCredentialsAWS53 struct {
 	AccessKeyID     string `yaml:"AWS_ACCESS_KEY_ID"`
 	SecretAccessKey string `yaml:"AWS_SECRET_ACCESS_KEY"`
+}
+
+type backupConfiguration struct {
+	Enabled     bool        `yaml:"enabled"`
+	Provider    string      `yaml:"provider,omitempty"`
+	Region      string      `yaml:"region,omitempty"`
+	BucketName  string      `yaml:"bucketName,omitempty"`
+	Credentials interface{} `yaml:"credentials,omitempty"`
+}
+
+type backupCredentialsAzure struct {
+	TenantId                string `yaml:"tenantID"`
+	SubscriptionId          string `yaml:"subscriptionID"`
+	ClientId                string `yaml:"clientID"`
+	ClientSecret            string `yaml:"clientSecret"`
+	StorageAccount          string `yaml:"storageAccount"`
+	StorageAccountAccessKey string `yaml:"storageAccountAccessKey"`
 }
 
 type extensionsConfig map[string]map[string]bool
