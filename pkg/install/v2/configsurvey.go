@@ -544,13 +544,13 @@ func queryBackupConfig() (*backupConfiguration, error) {
 func (d *backupCredentialsAzure) parseCredentials() error {
 	qs := []*survey.Question{
 		{
-			Name:      "TenantId",
+			Name:      "TenantID",
 			Prompt:    &survey.Input{Message: "Azure tenant ID? (plain or base64)"},
 			Validate:  common.MakeValidatorFn("required"),
 			Transform: survey.TransformString(common.CoerceBase64String),
 		},
 		{
-			Name:      "SubscriptionId",
+			Name:      "SubscriptionID",
 			Prompt:    &survey.Input{Message: "Azure subscription ID? (plain or base64)"},
 			Validate:  common.MakeValidatorFn("required"),
 			Transform: survey.TransformString(common.CoerceBase64String),

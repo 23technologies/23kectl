@@ -75,9 +75,8 @@ func Install(kubeconfig string, isDryRun bool) error {
 		_, err = git.PlainInit(gitRepoPath, true)
 		if err != nil {
 			return err
-			}
+		}
 	}
-
 
 	fmt.Println("Installing flux")
 	err = installFlux(kubeconfigArgs, kubeclientOptions)
@@ -134,7 +133,6 @@ func Install(kubeconfig string, isDryRun bool) error {
 	return nil
 }
 
-
 func getKeConfig() (*KeConfig, error) {
 	keConfig := new(KeConfig)
 	err := UnmarshalKeConfig(keConfig)
@@ -168,6 +166,21 @@ func UnmarshalKeConfig(config *KeConfig) error {
 			return err
 		}
 		config.DomainConfig.Credentials = creds
+	}
+
+	_, ok = (config.BackupConfig.Credentials).(map[string]interface{})
+	if ok {
+		var creds interface{}
+		switch config.BackupConfig.Provider {
+		case common.BUCKET_PROVIDER_AZURE:
+			creds = backupCredentialsAzure{}
+		}
+		err = mapstructure.Decode(config.BackupConfig.Credentials, &creds)
+		if err != nil {
+			return err
+		}
+
+		config.BackupConfig.Credentials = creds
 	}
 	return nil
 }

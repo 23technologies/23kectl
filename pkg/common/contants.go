@@ -17,6 +17,10 @@ const (
 	DNS_PROVIDER_ALICLOUD_DNS        = "alicloud-dns"
 )
 
+const (
+	BUCKET_PROVIDER_AZURE = "azure"
+)
+
 var DNS_PROVIDER_TO_PROVIDER = map[string]string{
 	DNS_PROVIDER_AWS_ROUTE_53:        PROVIDER_AWS,
 	DNS_PROVIDER_AZURE_DNS:           PROVIDER_AZURE,

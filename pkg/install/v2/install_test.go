@@ -197,12 +197,12 @@ backups:
   region: %s
   bucketName: %s
   credentials:
-    storageaccount: %s
-    storageaccountaccesskey: %s
-    clientid: %s
-    clientsecret: %s
-    subscriptionid: %s
-    tenantid: %s
+    storageAccount: %s
+    storageAccountAccesskey: %s
+    clientID: %s
+    clientSecret: %s
+    subscriptionID: %s
+    tenantID: %s
 `,
 				testConfig["clusteridentity"],
 				testConfig["dashboard.clientsecret"],
