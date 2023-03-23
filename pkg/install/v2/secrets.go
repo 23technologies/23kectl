@@ -62,6 +62,7 @@ stringData:
     kubeApiServer:
       basicAuthPassword: {{ .KubeApiServer.BasicAuthPassword }}
     issuer:
+      enabled: true
       acme:
         email: {{ .Issuer.Acme.Email }}
     domains:
