@@ -187,6 +187,7 @@ domains:
     domain: my-domain.example.org
     provider: azure-dns
 issuer:
+  enabled: true
   acme:
     email: test@example.org
 kubeApiServer:
@@ -197,12 +198,12 @@ backups:
   region: %s
   bucketName: %s
   credentials:
-    storageAccount: %s
-    storageAccountAccesskey: %s
-    clientID: %s
-    clientSecret: %s
-    subscriptionID: %s
-    tenantID: %s
+    storageaccount: %s
+    storageaccountaccesskey: %s
+    clientid: %s
+    clientsecret: %s
+    subscriptionid: %s
+    tenantid: %s
 `,
 				testConfig["clusteridentity"],
 				testConfig["dashboard.clientsecret"],
