@@ -13,6 +13,7 @@ type KeConfig struct {
 	DomainConfig     domainConfiguration `yaml:"domainConfig,omitempty"`
 	BackupConfig     backupConfiguration `yaml:"backupConfig,omitempty"`
 	ExtensionsConfig extensionsConfig    `yaml:"extensions"`
+	CloudProfiles    []string            `yaml:"cloudprofiles"`
 }
 
 type admin struct {

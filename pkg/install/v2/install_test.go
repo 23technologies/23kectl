@@ -44,6 +44,7 @@ func init() {
 		"bucket.accesskey":                     "minioadmin",
 		"bucket.endpoint":                      "localhost:9000",
 		"bucket.secretkey":                     "minioadmin",
+		"cloudprofiles":                        []string{"hcloud", "regiocloud"},
 		"clusteridentity":                      "garden-cluster-my-identity",
 		"dashboard.clientsecret":               "my-client-secret",
 		"dashboard.sessionsecret":              "my-session-secret",
@@ -128,6 +129,7 @@ func init() {
 			viper.Set("dashboard.clientSecret", testConfig["dashboard.clientsecret"])
 			viper.Set("kubeApiServer.basicAuthPassword", testConfig["kubeapiserver.basicauthpassword"])
 			viper.Set("clusterIdentity", testConfig["clusteridentity"])
+			viper.Set("cloudprofiles", testConfig["cloudprofiles"])
 
 			_, err = git.PlainInit(configRepo, true)
 			if err != nil {

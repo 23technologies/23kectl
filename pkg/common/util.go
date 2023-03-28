@@ -57,7 +57,6 @@ func RandHex(bytes int) string {
 	return hex.EncodeToString(byteArr)
 }
 
-
 func ExitOnCtrlC(err error) {
 	if errors.Is(err, terminal.InterruptErr) {
 		fmt.Println("Ctrl+C, exiting.")
