@@ -1,13 +1,11 @@
 package common
 
 import (
-	"context"
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"github.com/minio/minio-go/v7"
 	"os"
 	"strings"
 
@@ -66,26 +64,4 @@ func ExitOnCtrlC(err error) {
 	} else if err != nil {
 		panic(err)
 	}
-}
-
-func FetchObject(bucket string, name string) ([]byte, error) {
-	s3Client, err := CreateMinioClient()
-	if err != nil {
-		return nil, err
-	}
-
-	obj, err := s3Client.GetObject(context.Background(), bucket, name, minio.GetObjectOptions{})
-	if err != nil {
-		return nil, err
-	}
-
-	stat, err := obj.Stat()
-	if err != nil {
-		return nil, err
-	}
-
-	content := make([]byte, stat.Size)
-	obj.Read(content)
-
-	return content, nil
 }
