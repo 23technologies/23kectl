@@ -1,7 +1,6 @@
 package install
 
 import (
-	"bytes"
 	"embed"
 	"fmt"
 	"io/fs"
@@ -183,8 +182,6 @@ func writeConfigDir(filesystem billy.Filesystem, subFolder string) error {
 			return err
 		}
 
-		buf := &bytes.Buffer{}
-		_ = tpl.Execute(buf, keConfig)
 		err = tpl.Execute(file, keConfig)
 		file.Close()
 		if err != nil {

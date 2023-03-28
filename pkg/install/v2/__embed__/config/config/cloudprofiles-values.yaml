@@ -9,12 +9,14 @@ stringData:
     global:
       kubernetes:
         versions:
-          1.22.9:
+          1.24.12:
             classification: preview
       seedSelector:
         enabled: true
         selector:
           providerTypes:
-            - hcloud
-    hcloud:
+            - {{ .BaseCluster.Provider }}
+{{ range .CloudProfiles }}
+    {{ . }}:
       enabled: true
+{{ end }}
