@@ -7,6 +7,6 @@ type: Opaque
 stringData:
   values.yaml: |
     backups:
-      enabled: false
+      enabled: true
     vpa:
       enabled: true
