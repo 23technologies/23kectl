@@ -19,4 +19,4 @@ stringData:
 {{ range .CloudProfiles }}
     {{ . }}:
       enabled: true
-{{ end }}
+{{- end }}
