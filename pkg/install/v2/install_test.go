@@ -80,6 +80,8 @@ func init() {
 		"gardenlet.seedpodcidr":           "100.73.0.0/16",
 		"gardenlet.seedservicecidr":       "100.88.0.0/13",
 		"issuer.acme.email":               "test@example.org",
+		"issuer.acme.server":              "example.acme.server",
+		"issuer.ca":                       "my-great-ca",
 		"kubeapiserver.basicauthpassword": "my-basic-auth-password",
 
 		"version": "test",
@@ -130,6 +132,8 @@ func init() {
 			viper.Set("kubeApiServer.basicAuthPassword", testConfig["kubeapiserver.basicauthpassword"])
 			viper.Set("clusterIdentity", testConfig["clusteridentity"])
 			viper.Set("cloudprofiles", testConfig["cloudprofiles"])
+			viper.Set("issuer.ca", testConfig["issuer.ca"])
+			viper.Set("issuer.acme.server", testConfig["issuer.acme.server"])
 
 			_, err = git.PlainInit(configRepo, true)
 			if err != nil {
@@ -192,6 +196,9 @@ issuer:
   enabled: true
   acme:
     email: test@example.org
+    server: %s
+  ca: |
+    %s
 kubeApiServer:
   basicAuthPassword: %s
 backups:
@@ -214,6 +221,8 @@ backups:
 				testConfig["domainconfig"].(map[string]any)["credentials"].(map[string]string)["clientsecret"],
 				testConfig["domainconfig"].(map[string]any)["credentials"].(map[string]string)["subscriptionid"],
 				testConfig["domainconfig"].(map[string]any)["credentials"].(map[string]string)["tenantid"],
+				testConfig["issuer.acme.server"],
+				testConfig["issuer.ca"],
 				testConfig["kubeapiserver.basicauthpassword"],
 				testConfig["backupconfig"].(map[string]any)["enabled"].(bool),
 				testConfig["backupconfig"].(map[string]any)["provider"].(string),

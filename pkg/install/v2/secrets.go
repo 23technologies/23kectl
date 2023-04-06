@@ -63,8 +63,11 @@ stringData:
       basicAuthPassword: {{ .KubeApiServer.BasicAuthPassword }}
     issuer:
       enabled: true
+      ca: |
+        {{- nindent 8 .Issuer.Ca }}
       acme:
         email: {{ .Issuer.Acme.Email }}
+        server: {{ .Issuer.Acme.Server }}
     domains:
       global: # means used for ingress, gardener defaultDomain and internalDomain
         {{- nindent 8 (toYaml .DomainConfig) }}
