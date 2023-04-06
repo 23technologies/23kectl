@@ -41,8 +41,9 @@ Dependent on your relationship with 23T you will be charged for using 23KE.
 `,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		// todo check required flags
+		viper.SetEnvPrefix("23KECTL_")
 		err := viper.ReadInConfig()
-		if (err != nil && !errors.Is(err, fs.ErrNotExist)) {
+		if err != nil && !errors.Is(err, fs.ErrNotExist) {
 			fmt.Print(err)
 			return err
 		}
