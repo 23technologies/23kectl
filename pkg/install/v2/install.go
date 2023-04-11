@@ -129,7 +129,7 @@ func Install(kubeconfig string, isDryRun bool) error {
 	fmt.Println("")
 	fmt.Println("Awesome. Your gardener installation should be up within 10 minutes.")
 	fmt.Printf("Once it's done you can login as %s.\n", color.BlueString(keConfiguration.Admin.Email))
-	fmt.Printf("Go kill some time by eagerly pressing F5 on https://dashboard.%s\n", color.BlueString(keConfiguration.DomainConfig.Domain))
+	fmt.Printf("Go kill some time by eagerly pressing F5 on %s%s\n", color.BlueString("https://dashboard."), color.BlueString(keConfiguration.DomainConfig.Domain))
 	return nil
 }
 
