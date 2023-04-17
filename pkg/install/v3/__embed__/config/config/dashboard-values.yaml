@@ -7,5 +7,6 @@ type: Opaque
 stringData:
   values.yaml: |
     global:
-      frontendConfig:
-        seedCandidateDeterminationStrategy: MinimalDistance
+      dashboard:
+        frontendConfig:
+          seedCandidateDeterminationStrategy: MinimalDistance

@@ -6,5 +6,6 @@ metadata:
 type: Opaque
 stringData:
   values.yaml: |
-    frontendConfig:
-      seedCandidateDeterminationStrategy: MinimalDistance
+    global:
+      frontendConfig:
+        seedCandidateDeterminationStrategy: MinimalDistance
