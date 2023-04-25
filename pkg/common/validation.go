@@ -14,7 +14,6 @@ func MakeValidatorFn(tag string) func(value interface{}) error {
 	}
 }
 
-
 func WithValidator(tag string) survey.AskOpt {
 	return survey.WithValidator(MakeValidatorFn(tag))
 }
