@@ -39,6 +39,14 @@ func watch() {
 		&check.HelmReleaseCheck{Name: "terminal-controller-manager-application", Namespace: "flux-system"},
 		&check.HelmReleaseCheck{Name: "terminal-controller-manager-runtime", Namespace: "flux-system"},
 		&check.HelmReleaseCheck{Name: "velero", Namespace: "flux-system"},
+
+		&check.KustomizationCheck{Name: "23ke-base", Namespace: "flux-system"},
+		&check.KustomizationCheck{Name: "23ke-config", Namespace: "flux-system"},
+		&check.KustomizationCheck{Name: "23ke-env-config", Namespace: "flux-system"},
+		&check.KustomizationCheck{Name: "23ke-env-garden-content", Namespace: "flux-system"},
+		&check.KustomizationCheck{Name: "flux-system", Namespace: "flux-system"},
+		&check.KustomizationCheck{Name: "gardener", Namespace: "flux-system"},
+		&check.KustomizationCheck{Name: "pre-gardener", Namespace: "flux-system"},
 	}
 
 	for {
