@@ -2,11 +2,12 @@ package check
 
 import (
 	"context"
+	"regexp"
+	"strings"
+
 	helmv2 "github.com/fluxcd/helm-controller/api/v2beta1"
 	sourcev1 "github.com/fluxcd/source-controller/api/v1beta2"
-	"regexp"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"strings"
 )
 
 type HelmReleaseCheck struct {
@@ -33,50 +34,51 @@ func (d *HelmReleaseCheck) Run() *Result {
 		return result
 	}
 
+	// parse status from current helm releaes
+	// we assume that we can build our logic on
+	// this status message
 	for _, condition := range hr.Status.Conditions {
 		if condition.Type == "Ready" {
 			result.Status = condition.Message
-
 			break
 		}
 	}
 
-	if result.Status == "Release reconciliation succeeded" {
-		result.IsError = false
-		result.IsOkay = true
-	} else if result.Status == "install retries exhausted" || strings.Contains(result.Status, "Helm install failed") {
-		result.IsError = true
-		result.IsOkay = false
-	}
-
+	regexMap := map[*regexp.Regexp]func(res *Result, matches []string){}
+	regexMap[regexp.MustCompile("Release reconciliation succeeded")] = func(res *Result, matches []string) { res.IsError = false; res.IsOkay = true }
+	regexMap[regexp.MustCompile("install retries exhausted|Helm install failed")] = func(res *Result, matches []string) { res.IsError = true; res.IsOkay = false }
 	// https://regex101.com/r/1l7ita/1
-	hcRegex := regexp.MustCompile("^HelmChart '(?P<namespace>.*)/(?P<name>.*)' is not ready$")
-	matches := hcRegex.FindStringSubmatch(result.Status)
+	regexMap[regexp.MustCompile("^HelmChart '(?P<namespace>.*)/(?P<name>.*)' is not ready$")] = handleHelmChartError
 
-	if matches != nil {
-		namespace := matches[hcRegex.SubexpIndex("namespace")]
-		name := matches[hcRegex.SubexpIndex("name")]
-
-		hc := &sourcev1.HelmChart{}
-
-		err := kubeClient.Get(context.Background(), client.ObjectKey{
-			Namespace: namespace,
-			Name:      name,
-		}, hc)
-
-		if err != nil {
-			result.Status = result.Status + ": " + err.Error()
-		} else {
-			hcReadyMessage := getMessage(hc.Status.Conditions, "Ready")
-
-			newline := "\n  > "
-
-			result.Status = result.Status + newline + strings.Replace(hcReadyMessage, ": ", newline, -1)
+	for curRegexp, curFunc := range regexMap {
+		matches := curRegexp.FindStringSubmatch(result.Status)
+		if matches != nil {
+			curFunc(result, matches)
+			break
 		}
+	}
+	return result
+}
 
-		result.IsError = true
-		result.IsOkay = false
+func handleHelmChartError(res *Result, matches []string) {
+	namespace := matches[1]
+	name := matches[2]
+
+	hc := &sourcev1.HelmChart{}
+
+	err := kubeClient.Get(context.Background(), client.ObjectKey{
+		Namespace: namespace,
+		Name:      name,
+	}, hc)
+
+	if err != nil {
+		res.Status = res.Status + ": " + err.Error()
+	} else {
+		hcReadyMessage := getMessage(hc.Status.Conditions, "Ready")
+		newline := "\n  > "
+		res.Status = res.Status + newline + strings.Replace(hcReadyMessage, ": ", newline, -1)
 	}
 
-	return result
+	res.IsError = true
+	res.IsOkay = false
 }
