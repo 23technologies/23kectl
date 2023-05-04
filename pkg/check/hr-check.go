@@ -103,7 +103,7 @@ func handeHelmTestError(res *Result, matches []string) {
 	)
 
 	newline := "\n  > "
-	res.Status = matches[0] + newline + replacer.Replace(wordwrap.WrapString(log.String(), 100))
+	res.Status = matches[0] + newline + replacer.Replace(wordwrap.WrapString(strings.TrimSpace(log.String()), 100))
 
 	res.IsError = true
 	res.IsOkay = false
