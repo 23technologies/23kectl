@@ -21,7 +21,7 @@ func (d *KustomizationCheck) Run() *Result {
 
 	ks := &v1beta2.Kustomization{}
 
-	err := kubeClient.Get(context.Background(), client.ObjectKey{
+	err := KubeClient.Get(context.Background(), client.ObjectKey{
 		Namespace: d.Namespace,
 		Name:      d.Name,
 	}, ks)

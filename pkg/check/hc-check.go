@@ -20,7 +20,7 @@ func (d *HelmChartsCheck) Run() *Result {
 
 	hc := &v1.HelmChart{}
 
-	err := kubeClient.Get(context.Background(), client.ObjectKey{
+	err := KubeClient.Get(context.Background(), client.ObjectKey{
 		Namespace: d.Namespace,
 		Name:      d.Name,
 	}, hc)

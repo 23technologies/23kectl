@@ -27,7 +27,7 @@ func (d *HelmReleaseCheck) Run() *Result {
 
 	hr := &helmv2.HelmRelease{}
 
-	err := kubeClient.Get(context.Background(), client.ObjectKey{
+	err := KubeClient.Get(context.Background(), client.ObjectKey{
 		Namespace: d.Namespace,
 		Name:      d.Name,
 	}, hr)
@@ -93,7 +93,7 @@ func handeHelmTestError(res *Result, matches []string) {
 
 	// It seems controller-runtime does not allow to access the logs.
 	// Use kubectl directly for the moment.
-	test := kubeClientGo.CoreV1().Pods("garden").GetLogs(matches[1], &corev1.PodLogOptions{})
+	test := KubeClientGo.CoreV1().Pods("garden").GetLogs(matches[1], &corev1.PodLogOptions{})
 	logs, err := test.Do(context.Background()).Raw()
 	log := string(logs)
 	if err != nil {
@@ -127,7 +127,7 @@ func handleHelmChartError(res *Result, matches []string) {
 
 	hc := &sourcev1.HelmChart{}
 
-	err := kubeClient.Get(context.Background(), client.ObjectKey{
+	err := KubeClient.Get(context.Background(), client.ObjectKey{
 		Namespace: namespace,
 		Name:      name,
 	}, hc)
