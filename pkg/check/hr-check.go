@@ -3,6 +3,7 @@ package check
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"os/exec"
 	"regexp"
 	"strings"
@@ -75,8 +76,8 @@ func (d *HelmReleaseCheck) Run() *Result {
 
 	// iterate over status conditions in the helm releases
 	// here all useful information about potential errors should be found
-	for _, condition := range hr.GetConditions() {
-		for _, curHandler := range handlers {
+	for _, curHandler := range handlers {
+		for _, condition := range hr.GetConditions() {
 			matches := curHandler.regex.FindStringSubmatch(condition.Message)
 			if matches != nil {
 				curHandler.fn(result, matches)
@@ -93,13 +94,16 @@ func handeHelmTestError(res *Result, matches []string) {
 
 	// It seems controller-runtime does not allow to access the logs.
 	// Use kubectl directly for the moment.
-	var log bytes.Buffer
+	var log string
+	var logBuf bytes.Buffer
 	cmd := exec.Command("kubectl", "logs", "-n", "garden", matches[1])
-	cmd.Stdout = &log
+	cmd.Stdout = &logBuf
 	err := cmd.Run()
 
 	if err != nil {
-		panic(err)
+		log = fmt.Sprintf("couldn't get pod logs: %s", err)
+	} else {
+		log = logBuf.String()
 	}
 
 	// Do some easy formatting for the moment.
@@ -117,7 +121,7 @@ func handeHelmTestError(res *Result, matches []string) {
 	)
 
 	newline := "\n  > "
-	res.Status = matches[0] + newline + replacer.Replace(wordwrap.WrapString(strings.TrimSpace(log.String()), 100))
+	res.Status = matches[0] + newline + replacer.Replace(wordwrap.WrapString(strings.TrimSpace(log), 100))
 
 	res.IsError = true
 	res.IsOkay = false
