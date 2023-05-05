@@ -72,15 +72,15 @@ func init() {
 			},
 		},
 
-		"emailaddress":                    "test@example.org",
-		"gardener.clusterip":              "10.0.0.100",
-		"gardenlet.seednodecidr":          "10.250.0.0/16",
-		"gardenlet.seedpodcidr":           "100.73.0.0/16",
-		"gardenlet.seedservicecidr":       "100.88.0.0/13",
-		"issuer.acme.email":               "test@example.org",
-		"issuer.acme.server":              "example.acme.server",
-		"issuer.ca":                       "my-great-ca",
-		"version": "test",
+		"emailaddress":              "test@example.org",
+		"gardener.clusterip":        "10.0.0.100",
+		"gardenlet.seednodecidr":    "10.250.0.0/16",
+		"gardenlet.seedpodcidr":     "100.73.0.0/16",
+		"gardenlet.seedservicecidr": "100.88.0.0/13",
+		"issuer.acme.email":         "test@example.org",
+		"issuer.acme.server":        "example.acme.server",
+		"issuer.ca":                 "my-great-ca",
+		"version":                   "test",
 	}
 
 	install.Container.BlockUntilKeyCanRead = func(_ string, _ *ssh.PublicKeys, _ string) {}

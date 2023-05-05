@@ -123,13 +123,12 @@ func Install(kubeconfig string, isDryRun bool) error {
 		return err
 	}
 
-	// todo: show some kind of progress bar
-
 	fmt.Println("")
 	fmt.Println("")
 	fmt.Println("Awesome. Your gardener installation should be up within 10 minutes.")
 	fmt.Printf("Once it's done you can login as %s.\n", color.BlueString(keConfiguration.Admin.Email))
 	fmt.Printf("Go kill some time by eagerly pressing F5 on https://dashboard.%s\n", color.BlueString(keConfiguration.DomainConfig.Domain))
+
 	return nil
 }
 

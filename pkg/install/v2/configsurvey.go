@@ -44,7 +44,7 @@ func queryConfig(kubeClient client.Client) error {
 	}
 
 	if !viper.IsSet("cloudprofiles") {
-			viper.Set("cloudprofiles", []string{"alicloud", "aws", "azure", "gcp", "hcloud", "regiocloud", "wavestack"})
+		viper.Set("cloudprofiles", []string{"alicloud", "aws", "azure", "gcp", "hcloud", "regiocloud", "wavestack"})
 	}
 
 	// enable the provider extensions needed for a minimal setup

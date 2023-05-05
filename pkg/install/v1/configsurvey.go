@@ -51,7 +51,6 @@ func queryConfig(kubeClient client.Client) error {
 		return err
 	}
 
-
 	return nil
 
 }
