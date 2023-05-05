@@ -37,36 +37,50 @@ func (d *HelmReleaseCheck) Run() *Result {
 		return result
 	}
 
-	// define a map from regexp to function
+	// define a slice of handler including a regexp and a function
 	// if we find a match we process the event by an appropriate function
 	// this is assumed to stay branchless in the future which enables easy extensibility
-	regexMap := map[*regexp.Regexp]func(res *Result, matches []string){}
-	regexMap[regexp.MustCompile("Release reconciliation succeeded")] = func(res *Result, matches []string) {
-		res.Status = prettify(matches[0])
-		res.IsError = false
-		res.IsOkay = true
+	// the order of processing is important as we prioritize the status messages
+	type handler struct {
+		regex *regexp.Regexp
+		fn    func(res *Result, matches []string)
 	}
-	regexMap[regexp.MustCompile("install retries exhausted|upgrade retries exhausted|Helm install failed")] = func(res *Result, matches []string) {
-		res.Status = prettify(matches[0])
-		res.IsError = true
-		res.IsOkay = false
+
+	handlers := []handler{
+		{
+			regex: regexp.MustCompile("Helm test failed: pod (?P<podName>.*) failed"),
+			fn:    handeHelmTestError,
+		},
+		{
+			regex: regexp.MustCompile("(install retries exhausted|upgrade retries exhausted|Helm install failed|Helm upgrade failed).*"),
+			fn: func(res *Result, matches []string) {
+				res.Status = prettify(matches[0])
+				res.IsError = true
+				res.IsOkay = false
+			},
+		},
+		{
+			regex: regexp.MustCompile("^HelmChart '(?P<namespace>.*)/(?P<name>.*)' is not ready$"),
+			fn:    handleHelmChartError,
+		},
+		{
+			regex: regexp.MustCompile("Release reconciliation succeeded"),
+			fn: func(res *Result, matches []string) {
+				res.Status = prettify(matches[0])
+				res.IsError = false
+				res.IsOkay = true
+			},
+		},
 	}
-	regexMap[regexp.MustCompile("^Helm upgrade failed.*")] = func(res *Result, matches []string) {
-		res.Status = prettify(matches[0])
-		res.IsError = true
-		res.IsOkay = false
-	}
-	regexMap[regexp.MustCompile("^HelmChart '(?P<namespace>.*)/(?P<name>.*)' is not ready$")] = handleHelmChartError // https://regex101.com/r/1l7ita/1
-	regexMap[regexp.MustCompile("Helm test failed: pod (?P<podName>.*) failed")] = handeHelmTestError
 
 	// iterate over status conditions in the helm releases
 	// here all useful information about potential errors should be found
 	for _, condition := range hr.GetConditions() {
-		for curRegexp, curFunc := range regexMap {
-			matches := curRegexp.FindStringSubmatch(condition.Message)
+		for _, curHandler := range handlers {
+			matches := curHandler.regex.FindStringSubmatch(condition.Message)
 			if matches != nil {
-				curFunc(result, matches)
-				//	return result
+				curHandler.fn(result, matches)
+				return result
 			}
 		}
 	}
