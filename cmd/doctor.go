@@ -1,12 +1,37 @@
-package install
+/*
+Copyright © 2022 NAME HERE <EMAIL ADDRESS>
+*/
+package cmd
 
 import (
 	"fmt"
+
 	"github.com/23technologies/23kectl/pkg/check"
-	"time"
+	"github.com/spf13/cobra"
 )
 
-func watch() {
+// installCmd represents the install command
+var doctorCmd = &cobra.Command{
+	Use:   "doctor",
+	Short: "Check the status of a current 23ke installation",
+	Long: `This command will print status messages for flux resources.
+
+If e.g. a HelmRelease failed, the error message message including a hint
+will be printed.
+`,
+	RunE: func(cmd *cobra.Command, args []string) error {
+
+		doctor()
+		return nil
+	},
+}
+
+func init() {
+	rootCmd.AddCommand(doctorCmd)
+	doctorCmd.PersistentFlags().String("kubeconfig", "", "The KUBECONFIG of your base cluster")
+}
+
+func doctor() {
 	checks := []check.Check{
 		&check.HelmReleaseCheck{Name: "addons", Namespace: "flux-system"},
 		&check.HelmReleaseCheck{Name: "admission-provider-azure-application", Namespace: "flux-system"},
@@ -49,23 +74,20 @@ func watch() {
 		&check.KustomizationCheck{Name: "pre-gardener", Namespace: "flux-system"},
 	}
 
-	for {
-		fmt.Print("\033[H\033[2J")
+	fmt.Print("\033[H\033[2J")
 
-		for _, c := range checks {
-			result := c.Run()
+	for _, c := range checks {
+		result := c.Run()
 
-			emoji := "⌛"
+		emoji := "⌛"
 
-			if result.IsError {
-				emoji = "❌"
-			} else if result.IsOkay {
-				emoji = "✔️"
-			}
-
-			fmt.Printf("%s %s status: %s\n", emoji, c.GetName(), result.Status)
+		if result.IsError {
+			emoji = "❌"
+		} else if result.IsOkay {
+			emoji = "✔️"
 		}
 
-		time.Sleep(time.Second * 5)
+		fmt.Printf("%s %s status: %s\n", emoji, c.GetName(), result.Status)
 	}
+
 }

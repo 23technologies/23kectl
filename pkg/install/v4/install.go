@@ -41,10 +41,6 @@ var Container = struct {
 }
 
 func Install(kubeconfig string, isDryRun bool) error {
-	watch()
-
-	return nil
-
 	log := logger.Get("Install")
 
 	keConfiguration := &KeConfig{}
