@@ -8,9 +8,11 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+				"k8s.io/client-go/kubernetes"
 )
 
 var kubeClient client.Client
+var kubeClientGo *kubernetes.Clientset
 
 func init() {
 	var err error
@@ -21,6 +23,11 @@ func init() {
 	_ = kustomizev1.AddToScheme(scheme)
 
 	kubeClient, err = client.New(ctrl.GetConfigOrDie(), client.Options{Scheme: scheme})
+	if err != nil {
+		panic(err)
+	}
+
+	kubeClientGo, err = kubernetes.NewForConfig(ctrl.GetConfigOrDie())
 	if err != nil {
 		panic(err)
 	}

@@ -1,16 +1,15 @@
 package check
 
 import (
-	"bytes"
 	"context"
 	"fmt"
-	"os/exec"
 	"regexp"
 	"strings"
 
 	helmv2 "github.com/fluxcd/helm-controller/api/v2beta1"
 	sourcev1 "github.com/fluxcd/source-controller/api/v1beta2"
 	"github.com/mitchellh/go-wordwrap"
+	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -94,16 +93,11 @@ func handeHelmTestError(res *Result, matches []string) {
 
 	// It seems controller-runtime does not allow to access the logs.
 	// Use kubectl directly for the moment.
-	var log string
-	var logBuf bytes.Buffer
-	cmd := exec.Command("kubectl", "logs", "-n", "garden", matches[1])
-	cmd.Stdout = &logBuf
-	err := cmd.Run()
-
+	test := kubeClientGo.CoreV1().Pods("garden").GetLogs(matches[1], &corev1.PodLogOptions{})
+	logs, err := test.Do(context.Background()).Raw()
+	log := string(logs)
 	if err != nil {
 		log = fmt.Sprintf("couldn't get pod logs: %s", err)
-	} else {
-		log = logBuf.String()
 	}
 
 	// Do some easy formatting for the moment.
