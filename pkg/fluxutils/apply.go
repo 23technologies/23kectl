@@ -18,20 +18,16 @@ package utils
 
 import (
 	"bufio"
-	"bytes"
 	"context"
 	"fmt"
 	"os"
-	"path/filepath"
 	"time"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"sigs.k8s.io/cli-utils/pkg/kstatus/polling"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/kustomize/api/konfig"
 
-	"github.com/fluxcd/flux2/pkg/manifestgen/kustomization"
 	runclient "github.com/fluxcd/pkg/runtime/client"
 	"github.com/fluxcd/pkg/ssa"
 )
@@ -100,14 +96,6 @@ func readObjects(root, manifestPath string) ([]*unstructured.Unstructured, error
 		return nil, fmt.Errorf("expected %q to be a file", manifestPath)
 	}
 
-	if isRecognizedKustomizationFile(manifestPath) {
-		resources, err := kustomization.BuildWithRoot(root, filepath.Dir(manifestPath))
-		if err != nil {
-			return nil, err
-		}
-		return ssa.ReadObjects(bytes.NewReader(resources))
-	}
-
 	ms, err := os.Open(manifestPath)
 	if err != nil {
 		return nil, err
@@ -154,14 +142,4 @@ func waitForSet(rcg genericclioptions.RESTClientGetter, opts *runclient.Options,
 		return err
 	}
 	return man.WaitForSet(changeSet.ToObjMetadataSet(), ssa.WaitOptions{Interval: 2 * time.Second, Timeout: time.Minute})
-}
-
-func isRecognizedKustomizationFile(path string) bool {
-	base := filepath.Base(path)
-	for _, v := range konfig.RecognizedKustomizationFileNames() {
-		if base == v {
-			return true
-		}
-	}
-	return false
 }

@@ -38,6 +38,8 @@ func Install(kubeconfig string, isDryRun bool) error {
 		return installv3.Install(kubeconfig, isDryRun)
 	case "v4":
 		return installv4.Install(kubeconfig, isDryRun)
+	// case "v5":
+	// return installv5.Install(kubeconfig, isDryRun)
 	default:
 		return fmt.Errorf("your current version of 23kectl is too old to install the requested version. Please update 23kectl and try again")
 	}
