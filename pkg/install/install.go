@@ -10,10 +10,7 @@ import (
 	"github.com/spf13/viper"
 	"gopkg.in/yaml.v2"
 
-	installv1 "github.com/23technologies/23kectl/pkg/install/v1"
-	installv2 "github.com/23technologies/23kectl/pkg/install/v2"
-	installv3 "github.com/23technologies/23kectl/pkg/install/v3"
-	installv4 "github.com/23technologies/23kectl/pkg/install/v4"
+	installv5 "github.com/23technologies/23kectl/pkg/install/v5"
 )
 
 func Install(kubeconfig string, isDryRun bool) error {
@@ -26,20 +23,10 @@ func Install(kubeconfig string, isDryRun bool) error {
 	installPkgVersion := yaml23kectl["installPkgVersion"]
 
 	switch installPkgVersion {
-	case "v1-trial":
-		return installv1.Install(kubeconfig, isDryRun)
-	case "v1":
-		return installv1.Install(kubeconfig, isDryRun)
-	case "v2-trial":
-		return installv2.Install(kubeconfig, isDryRun)
-	case "v2":
-		return installv2.Install(kubeconfig, isDryRun)
-	case "v3":
-		return installv3.Install(kubeconfig, isDryRun)
-	case "v4":
-		return installv4.Install(kubeconfig, isDryRun)
-	// case "v5":
-	// return installv5.Install(kubeconfig, isDryRun)
+	case "v1-trial", "v1", "v2-trial", "v2", "v3", "v4":
+		return fmt.Errorf("this version of 23kectl no longer supports the requested version of 23ke. Please use 23kectl v0.0.17 (https://github.com/23technologies/23kectl/releases/tag/v0.0.17)")
+	case "v5":
+		return installv5.Install(kubeconfig, isDryRun)
 	default:
 		return fmt.Errorf("your current version of 23kectl is too old to install the requested version. Please update 23kectl and try again")
 	}

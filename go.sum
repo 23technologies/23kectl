@@ -113,8 +113,6 @@ github.com/exponent-io/jsonpath v0.0.0-20210407135951-1de76d718b3f h1:Wl78ApPPB2
 github.com/exponent-io/jsonpath v0.0.0-20210407135951-1de76d718b3f/go.mod h1:OSYXu++VVOHnXeitef/D8n/6y4QV8uLHSFXX4NeXMGc=
 github.com/fatih/color v1.15.0 h1:kOqh6YHBtK8aywxGerMG2Eq3H6Qgoqeo13Bk2Mv/nBs=
 github.com/fatih/color v1.15.0/go.mod h1:0h5ZqXfHYED7Bhv2ZJamyIOUej9KtShiJESRwBDUSsw=
-github.com/fluxcd/flux2 v0.41.2 h1:9KY616N4lm+60RGmQ5IbBAIuWT/b7T2ycP0gIAdBlYI=
-github.com/fluxcd/flux2 v0.41.2/go.mod h1:b9eAdNwwSHtMU9ZyXLk0vjxKBN5QT01yhe9YiD+oYxY=
 github.com/fluxcd/flux2/v2 v2.1.1 h1:VwMA8KjDMA7xTR1sQ1ACENuz9dzTeSY+1V7nc5qhSAg=
 github.com/fluxcd/flux2/v2 v2.1.1/go.mod h1:W5QA6E387W33Nul+Xe50y56pVOJ/bitAPnmTFQd5bKw=
 github.com/fluxcd/helm-controller/api v0.36.1 h1:v1Y8x7fCyWg5n0hkGJabwOKcBN6yuFKLMCELe7LEgxs=
@@ -143,8 +141,6 @@ github.com/fluxcd/pkg/ssh v0.8.2 h1:WNfvTmnLnOUyXQDb8luSfmn1X0RIuhJBcKMFtKm6YsQ=
 github.com/fluxcd/pkg/ssh v0.8.2/go.mod h1:ewbU9vakYYdGSX92qXhx6Kqi5tVQ3ppmGQakCX1R6Gw=
 github.com/fluxcd/pkg/tar v0.2.0 h1:HEUHgONQYsJGeZZ4x6h5nQU9Aox1I4T3bOp1faWTqf8=
 github.com/fluxcd/pkg/tar v0.2.0/go.mod h1:w0/TOC7kwBJhnSJn7TCABkc/I7ib1f2Yz6vOsbLBnhw=
-github.com/fluxcd/pkg/untar v0.2.0 h1:sJXU+FbJcNUb2ffLJNjeR3hwt3X2loVpOMlCUjyFw6E=
-github.com/fluxcd/pkg/untar v0.2.0/go.mod h1:33AyoWaPpjX/xXpczcfhQh2AkB63TFwiR2YwROtv23E=
 github.com/fluxcd/pkg/version v0.2.2 h1:ZpVXECeLA5hIQMft11iLp6gN3cKcz6UNuVTQPw/bRdI=
 github.com/fluxcd/pkg/version v0.2.2/go.mod h1:NGnh/no8S6PyfCDxRFrPY3T5BUnqP48MxfxNRU0z8C0=
 github.com/fluxcd/source-controller/api v1.1.1 h1:0KQTEnLxBRrovISc5JeovTfyTjhh4vwodNnYyD6XD/Q=

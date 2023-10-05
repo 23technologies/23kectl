@@ -7,7 +7,6 @@ require (
 	github.com/Masterminds/sprig/v3 v3.2.3
 	github.com/bombsimon/logrusr/v4 v4.0.0
 	github.com/fatih/color v1.15.0
-	github.com/fluxcd/flux2 v0.41.2
 	github.com/fluxcd/flux2/v2 v2.1.1
 	github.com/fluxcd/helm-controller/api v0.36.1
 	github.com/fluxcd/image-automation-controller/api v0.36.1
@@ -46,7 +45,7 @@ require (
 	k8s.io/utils v0.0.0-20230726121419-3b25d923346b
 	sigs.k8s.io/cli-utils v0.35.0
 	sigs.k8s.io/controller-runtime v0.16.2
-	sigs.k8s.io/kustomize/api v0.14.0
+	sigs.k8s.io/kustomize/kyaml v0.14.3
 	sigs.k8s.io/yaml v1.3.0
 )
 
@@ -76,7 +75,6 @@ require (
 	github.com/fluxcd/pkg/kustomize v1.3.4 // indirect
 	github.com/fluxcd/pkg/ssh v0.8.2 // indirect
 	github.com/fluxcd/pkg/tar v0.2.0 // indirect
-	github.com/fluxcd/pkg/untar v0.2.0 // indirect
 	github.com/fsnotify/fsnotify v1.6.0 // indirect
 	github.com/gabriel-vasile/mimetype v1.4.2 // indirect
 	github.com/go-errors/errors v1.4.2 // indirect
@@ -169,6 +167,6 @@ require (
 	k8s.io/kube-openapi v0.0.0-20230717233707-2695361300d9 // indirect
 	k8s.io/kubectl v0.28.2 // indirect
 	sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd // indirect
-	sigs.k8s.io/kustomize/kyaml v0.14.3 // indirect
+	sigs.k8s.io/kustomize/api v0.14.0 // indirect
 	sigs.k8s.io/structured-merge-diff/v4 v4.3.0 // indirect
 )
